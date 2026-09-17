@@ -1,0 +1,6 @@
+Types: deb
+URIs: https://ansible-autobott.github.io/debian-repo
+Suites: stable
+Components: main
+Architectures: amd64 arm64
+Signed-By: /etc/apt/keyrings/autobott-archive-keyring.gpg

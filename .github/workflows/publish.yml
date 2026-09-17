@@ -1,0 +1,78 @@
+name: Publish APT repo
+
+# A push to main that touches a package reference, a manually-added binary, or
+# the build tooling rebuilds the whole repo from packages/*.json + debs/ and
+# publishes it to GitHub Pages. The full set is reconstructed every run, so no
+# app can clobber another's package.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/**'
+      - 'debs/**'
+      - 'schema/**'
+      - 'conf/**'
+      - 'scripts/**'
+      - 'Makefile'
+      - 'index.html'
+      - 'autobott.sources'
+      - '.github/workflows/publish.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One publish at a time; don't cancel an in-flight deployment.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    env:
+      SITE: _site
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y apt-utils
+          pipx install check-jsonschema
+          # jq, gpg, curl are preinstalled on ubuntu-latest runners.
+
+      - name: Import signing key
+        # GNUPGHOME is kept OUTSIDE the repo/site tree so the private key can
+        # never land in the published artifact. runner.* is only available at
+        # step level, so it's set here (and on the build step) rather than on
+        # the job.
+        env:
+          GNUPGHOME: ${{ runner.temp }}/autobott-gnupg
+        run: |
+          install -d -m 700 "$GNUPGHOME"
+          printf '%s' "${{ secrets.APT_SIGNING_KEY }}" | gpg --batch --import
+
+      - name: Validate package references
+        run: make validate
+
+      - name: Assemble the pool (download + verify, merge debs/)
+        run: make hydrate
+
+      - name: Build & sign the index
+        env:
+          GNUPGHOME: ${{ runner.temp }}/autobott-gnupg
+        run: make build
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deploy
+        uses: actions/deploy-pages@v4

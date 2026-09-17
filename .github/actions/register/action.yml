@@ -1,0 +1,68 @@
+name: Register in autobott APT repo
+description: >-
+  Generate and commit packages/<name>.json referencing this release's .deb
+  artifacts, so the autobott APT repository picks the new version up.
+
+inputs:
+  name:
+    description: Debian package name (must match the .deb's Package field).
+    required: true
+  dist-dir:
+    description: Directory containing the built .deb files.
+    required: false
+    default: dist
+  tag:
+    description: Release tag whose assets host the .deb files.
+    required: false
+    default: ${{ github.ref_name }}
+  source-repo:
+    description: Source app repo (owner/name) whose Release hosts the assets.
+    required: false
+    default: ${{ github.repository }}
+  repo:
+    description: The APT repository to write the reference into.
+    required: false
+    default: ansible-autobott/debian-repo
+  token:
+    description: Token with Contents write access on the APT repository.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Register package reference
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        IN_NAME: ${{ inputs.name }}
+        IN_DIST: ${{ inputs.dist-dir }}
+        IN_TAG: ${{ inputs.tag }}
+        IN_SRC: ${{ inputs.source-repo }}
+        IN_REPO: ${{ inputs.repo }}
+      run: |
+        set -euo pipefail
+        # validator for the fail-fast schema check (publish CI validates too)
+        pipx install check-jsonschema >/dev/null 2>&1 || pip install --quiet check-jsonschema || true
+
+        work="$RUNNER_TEMP/aptrepo"
+        rm -rf "$work"
+        git clone "https://x-access-token:${GH_TOKEN}@github.com/${IN_REPO}.git" "$work"
+
+        # generate + validate packages/<name>.json (dist-dir is relative to the app workspace)
+        "$work/scripts/register.sh" \
+          --name "$IN_NAME" --dist-dir "$IN_DIST" --repo "$IN_SRC" \
+          --tag "$IN_TAG" --out "$work/packages/${IN_NAME}.json"
+
+        cd "$work"
+        git config user.name  "autobott-bot"
+        git config user.email "bot@users.noreply.github.com"
+        git add "packages/${IN_NAME}.json"
+        if git diff --cached --quiet; then
+          echo "no change — ${IN_NAME} already up to date"; exit 0
+        fi
+        git commit -m "${IN_NAME} ${IN_TAG#v}"
+        for i in 1 2 3 4 5; do
+          if git pull --rebase origin main && git push origin main; then exit 0; fi
+          sleep $((RANDOM % 5 + 1))
+        done
+        echo "❌ failed to push after retries" >&2; exit 1

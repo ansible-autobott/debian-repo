@@ -1,0 +1,8 @@
+/* autobott colour theme: teal — overrides the accent family in index.html */
+:root {
+  --accent:#33D6B5;
+  --accent-deep:#7DEBD3;
+  --accent-tint:#0E3A33;
+  --accent-rgb:45,214,181;
+  --grad:linear-gradient(135deg,#17B89C,#3AD6C0);
+}

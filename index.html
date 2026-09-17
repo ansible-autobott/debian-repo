@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- This file is a TEMPLATE: scripts/gen-index.sh substitutes the tokens,
+       the packages table, and the colour theme at build time (make build). -->
+  <title>@@SITE_TITLE@@ · Debian/APT repository</title>
+  <style>
+    /* ---- tokens (dark, self-contained: system fonts, no external requests) - */
+    :root {
+      color-scheme: dark;
+      --bg:#0B0D1B; --surface:#15182B; --surface-2:#1C2038;
+      --ink:#ECEEF7; --ink-soft:#9CA3BD;
+      --line:#282D48; --chip:#222741;
+      /* accent family — overridden per theme by conf/themes/<name>.css */
+      --accent:#9D8CFF; --accent-deep:#BCB0FF; --accent-tint:#241F42; --accent-rgb:123,108,255;
+      --grad:linear-gradient(135deg,#7B6CFF,#B071FF);
+      --font-ui:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+      --font-mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+      --r-card:16px; --r-cmd:12px; --r-pill:999px;
+      --maxw:47rem;
+    }
+
+    /* ---- base ------------------------------------------------------------- */
+    * { box-sizing:border-box; }
+    body {
+      margin:0; min-height:100vh; color:var(--ink);
+      background-color:var(--bg);
+      background-image:radial-gradient(1100px 520px at 50% -180px, rgba(var(--accent-rgb),.28), rgba(var(--accent-rgb),0) 70%);
+      background-repeat:no-repeat;
+      font-family:var(--font-ui); line-height:1.6; -webkit-font-smoothing:antialiased;
+    }
+    .wrap { max-width:var(--maxw); margin:0 auto; padding:0 1.4rem 4rem; }
+    a { color:var(--accent-deep); text-underline-offset:2px; }
+    a:hover { opacity:.82; }
+    code { font-family:var(--font-mono); }
+    :focus-visible { outline:2.5px solid var(--accent); outline-offset:3px; border-radius:5px; }
+
+    /* ---- accent bar (signature) ------------------------------------------- */
+    .bar { height:6px; background:var(--grad); box-shadow:0 0 22px rgba(var(--accent-rgb),.55); }
+
+    /* ---- hero ------------------------------------------------------------- */
+    .hero { margin:2.8rem 0 1.8rem; }
+    .brand { display:flex; align-items:center; gap:.85rem; }
+    .mark {
+      width:2.6rem; height:2.6rem; border-radius:13px; flex:0 0 auto;
+      display:grid; place-items:center; background:var(--grad);
+      box-shadow:0 10px 26px -8px rgba(var(--accent-rgb),.7);
+    }
+    .wordmark {
+      margin:0; color:var(--ink); font-weight:800;
+      font-size:clamp(2.4rem,7vw,3.7rem); line-height:1; letter-spacing:-.025em;
+    }
+    .tagline {
+      margin:1rem 0 0; max-width:46ch;
+      font-size:clamp(1rem,2.3vw,1.16rem); color:var(--ink-soft);
+    }
+
+    /* ---- tabs (CSS-only, keeps static hosting) ---------------------------- */
+    .tabs > input { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
+    .tablist { display:flex; gap:.4rem; margin:1.9rem 0 1.5rem; border-bottom:1px solid var(--line); }
+    .tab {
+      cursor:pointer; padding:.5rem 1.05rem; font-weight:600; color:var(--ink-soft);
+      border-radius:10px 10px 0 0; user-select:none;
+      border-bottom:3px solid transparent; margin-bottom:-1px;
+      transition:background .15s ease, color .15s ease;
+    }
+    .tab:hover { color:var(--ink); }
+    #tab-install:checked ~ .tablist .lbl-install,
+    #tab-packages:checked ~ .tablist .lbl-packages {
+      color:var(--ink); background:var(--accent-tint); border-bottom-color:var(--accent);
+    }
+    #tab-install:focus-visible ~ .tablist .lbl-install,
+    #tab-packages:focus-visible ~ .tablist .lbl-packages { outline:2.5px solid var(--accent); outline-offset:2px; }
+    .panel { display:none; }
+    #tab-install:checked ~ .panel-install { display:block; }
+    #tab-packages:checked ~ .panel-packages { display:block; }
+
+    /* ---- install: numbered steps ------------------------------------------ */
+    .steps { list-style:none; counter-reset:step; margin:0; padding:0; display:flex; flex-direction:column; gap:1.35rem; }
+    .step { counter-increment:step; display:grid; grid-template-columns:2rem 1fr; gap:.9rem; align-items:start; }
+    .step::before {
+      content:counter(step); font-weight:700; font-size:.95rem;
+      width:2rem; height:2rem; border-radius:50%; display:grid; place-items:center;
+      background:var(--accent-tint); color:var(--accent-deep);
+      box-shadow:inset 0 0 0 1.5px var(--accent);
+    }
+    .step-title { margin:.2rem 0 .55rem; font-weight:600; font-size:1.04rem; }
+    .cmd {
+      background:var(--surface); border:1px solid var(--line); border-radius:var(--r-cmd);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.04);
+    }
+    .cmd-bar { display:flex; justify-content:flex-end; padding:.5rem .5rem 0; }
+    .cmd pre {
+      margin:0; padding:.4rem 1rem .9rem; background:transparent; border:0;
+      white-space:pre-wrap; overflow-wrap:anywhere;   /* wrap long commands instead of overflowing */
+      font-size:.86rem; line-height:1.65;
+    }
+    .cmd pre code { color:var(--ink); }
+    .copy {
+      font-family:var(--font-ui); font-size:.76rem; font-weight:600;
+      color:var(--accent-deep); background:var(--accent-tint);
+      border:1px solid transparent; border-radius:var(--r-pill); padding:.2rem .7rem; cursor:pointer;
+      transition:box-shadow .15s ease;
+    }
+    .copy:hover, .copy.ok { box-shadow:inset 0 0 0 1.5px var(--accent); }
+
+    /* ---- packages: accordion (markup produced by scripts/render-index.sh) --- */
+    .panel-packages .pkg-list { display:flex; flex-direction:column; gap:.55rem; }
+    .panel-packages details.pkg {
+      background:var(--surface); border:1px solid var(--line); border-radius:var(--r-card);
+      overflow:hidden; box-shadow:inset 0 1px 0 rgba(255,255,255,.04);
+    }
+    /* always-visible header: name · version · architectures */
+    .panel-packages details.pkg > summary {
+      list-style:none; cursor:pointer; user-select:none;
+      display:flex; align-items:center; flex-wrap:wrap; gap:.75rem;
+      padding:.8rem 1rem; transition:background .12s ease;
+    }
+    .panel-packages details.pkg > summary::-webkit-details-marker { display:none; }
+    .panel-packages details.pkg > summary:hover { background:var(--surface-2); }
+    .panel-packages details.pkg[open] > summary { background:var(--surface-2); border-bottom:1px solid var(--line); }
+    .panel-packages .pkg .name code { font-weight:600; color:var(--ink); }
+    .panel-packages .pkg .ver { color:var(--ink-soft); font-size:.85rem; font-variant-numeric:tabular-nums; }
+    .panel-packages .pkg .arches { margin-left:auto; display:flex; flex-wrap:wrap; gap:.3rem; }
+    .panel-packages .arch {
+      display:inline-block; font-family:var(--font-mono); font-size:.75rem;
+      padding:.1rem .45rem; border-radius:6px; background:var(--chip); color:var(--ink-soft);
+    }
+    /* chevron affordance (rotates when the item is open) */
+    .panel-packages details.pkg > summary::after {
+      content:"\25be"; color:var(--ink-soft); font-size:.8rem; line-height:1;
+      transition:transform .15s ease;
+    }
+    .panel-packages details.pkg[open] > summary::after { transform:rotate(180deg); }
+    /* expanded body: description, optional homepage link, then download options */
+    .panel-packages .pkg-body { padding:.2rem 1rem 1rem; }
+    .panel-packages .pkg-body .desc { margin:.65rem 0 .95rem; color:var(--ink); }
+    .panel-packages .pkg-body .home {
+      display:inline-flex; align-items:center; gap:.3rem; margin:0 0 .95rem;
+      font-family:var(--font-mono); font-size:.8rem; color:var(--ink-soft); text-decoration:none;
+    }
+    .panel-packages .pkg-body .home::before { content:"\2197"; color:var(--accent-deep); font-size:.82rem; }
+    .panel-packages .pkg-body .home:hover { color:var(--accent-deep); }
+    .panel-packages .downloads { display:flex; flex-wrap:wrap; gap:.5rem; }
+    .panel-packages .downloads a {
+      display:inline-flex; align-items:baseline; gap:.4rem; text-decoration:none;
+      font-weight:600; font-size:.82rem; color:var(--accent-deep); background:var(--accent-tint);
+      padding:.32rem .8rem; border-radius:var(--r-pill); transition:box-shadow .15s ease;
+    }
+    .panel-packages .downloads a:hover { box-shadow:inset 0 0 0 1.5px var(--accent); }
+    .panel-packages .downloads a::before { content:"\2b07"; font-size:.78rem; opacity:.8; }
+    .panel-packages .downloads a .s { color:var(--ink-soft); font-weight:500; font-size:.78rem; font-variant-numeric:tabular-nums; }
+    .empty {
+      margin:0; padding:2.6rem 1.4rem; text-align:center; color:var(--ink-soft);
+      background:var(--surface); border:1px dashed var(--line); border-radius:var(--r-card);
+    }
+
+    /* ---- footer ----------------------------------------------------------- */
+    .foot { margin-top:2.8rem; padding-top:1.3rem; border-top:1px solid var(--line); color:var(--ink-soft); font-size:.88rem; }
+
+    @media (max-width:32rem) { .step { grid-template-columns:1.7rem 1fr; gap:.7rem; } }
+    @media (prefers-reduced-motion: reduce) { * { transition:none !important; animation:none !important; } }
+
+    /* theme override injected here by gen-index.sh (conf/themes/<name>.css) */
+    /* @@THEME@@ */
+  </style>
+</head>
+<body>
+  <div class="bar" aria-hidden="true"></div>
+  <main class="wrap">
+    <header class="hero">
+      <div class="brand">
+        <span class="mark" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round">
+            <path d="M12 2.8 3.5 7v10L12 21.2 20.5 17V7L12 2.8Z"/>
+            <path d="M3.5 7 12 11.5 20.5 7"/>
+            <path d="M12 11.5V21"/>
+          </svg>
+        </span>
+        <h1 class="wordmark">@@SITE_TITLE@@</h1>
+      </div>
+      <p class="tagline">@@SITE_TAGLINE@@, built for @@ARCHES@@.</p>
+    </header>
+
+    <div class="tabs">
+      <input type="radio" name="tab" id="tab-install" checked>
+      <input type="radio" name="tab" id="tab-packages">
+      <nav class="tablist" aria-label="View">
+        <label class="tab lbl-install" for="tab-install">Install</label>
+        <label class="tab lbl-packages" for="tab-packages">Packages</label>
+      </nav>
+
+      <section class="panel panel-install">
+        <ol class="steps">
+          <li class="step">
+            <div>
+              <p class="step-title">Trust the signing key</p>
+              <div class="cmd"><pre><code>sudo install -d -m 0755 /etc/apt/keyrings
+sudo curl -fsSL @@REPO_URL@@/@@KEYRING_FILE@@ \
+  -o /etc/apt/keyrings/@@KEYRING_FILE@@</code></pre></div>
+            </div>
+          </li>
+          <li class="step">
+            <div>
+              <p class="step-title">Add the repository</p>
+              <div class="cmd"><pre><code>sudo curl -fsSL @@REPO_URL@@/@@SOURCES_FILE@@ \
+  -o /etc/apt/sources.list.d/@@SOURCES_FILE@@</code></pre></div>
+            </div>
+          </li>
+          <li class="step">
+            <div>
+              <p class="step-title">Install a package</p>
+              <div class="cmd"><pre><code>sudo apt update
+sudo apt install &lt;package&gt;</code></pre></div>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <section class="panel panel-packages">
+        <!-- PACKAGES_TABLE -->
+      </section>
+    </div>
+
+    <footer class="foot">
+      Built and signed from <a href="@@GITHUB_URL@@">@@GITHUB_LABEL@@</a>. Every package is GPG-signed.
+    </footer>
+  </main>
+
+  <script>
+    // Progressive enhancement: add a copy button in a toolbar above each command.
+    document.querySelectorAll('.cmd').forEach(function (block) {
+      var pre = block.querySelector('pre');
+      if (!pre || !navigator.clipboard) return;
+      var bar = document.createElement('div');
+      bar.className = 'cmd-bar';
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'copy';
+      btn.textContent = 'Copy';
+      btn.setAttribute('aria-label', 'Copy command to clipboard');
+      btn.addEventListener('click', function () {
+        navigator.clipboard.writeText(pre.innerText.trim()).then(function () {
+          btn.textContent = 'Copied';
+          btn.classList.add('ok');
+          setTimeout(function () { btn.textContent = 'Copy'; btn.classList.remove('ok'); }, 1600);
+        });
+      });
+      bar.appendChild(btn);
+      block.insertBefore(bar, pre);
+    });
+  </script>
+</body>
+</html>

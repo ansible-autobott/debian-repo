@@ -1,0 +1,11 @@
+{
+  "name": "example-pkg",
+  "version": "0.3.1",
+  "artifacts": [
+    {
+      "arch": "sparc64",
+      "url": "https://github.com/ansible-autobott/example-pkg/releases/download/v0.3.1/example-pkg_0.3.1_sparc64.deb",
+      "sha256": "c1fce4a1d3454069fc595aea37cf7e2d786a5f832f06385e2630f656a05d4fc0"
+    }
+  ]
+}

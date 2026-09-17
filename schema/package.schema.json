@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ansible-autobott.github.io/debian-repo/schema/package.schema.json",
+  "title": "autobott APT package entry",
+  "description": "One file per app under packages/. References the .deb artifacts for the app's current version; the publish CI downloads and verifies them.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "version", "artifacts"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Debian package name (must match the .deb's Package field).",
+      "pattern": "^[a-z0-9][a-z0-9+.-]+$"
+    },
+    "version": {
+      "type": "string",
+      "description": "Package version (must match the .deb's Version field).",
+      "minLength": 1
+    },
+    "homepage": {
+      "type": "string",
+      "format": "uri",
+      "description": "Optional project URL (informational)."
+    },
+    "description": {
+      "type": "string",
+      "description": "Optional one-line description (informational)."
+    },
+    "artifacts": {
+      "type": "array",
+      "description": "One entry per architecture.",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["arch", "url", "sha256"],
+        "properties": {
+          "arch": {
+            "description": "Debian architecture (must match the .deb's Architecture field). \"all\" is an architecture-independent package; apt-ftparchive includes it in every architecture's index.",
+            "enum": ["all", "amd64", "arm64"]
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "pattern": "^https://",
+            "description": "Direct HTTPS download URL of the .deb (e.g. a GitHub Release asset)."
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "description": "Lowercase hex SHA-256 of the .deb; verified after download."
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,8 @@
+/* autobott colour theme: amber — overrides the accent family in index.html */
+:root {
+  --accent:#F5B84E;
+  --accent-deep:#FFD48C;
+  --accent-tint:#3A2A10;
+  --accent-rgb:240,170,60;
+  --grad:linear-gradient(135deg,#E9A22E,#F5C45E);
+}
