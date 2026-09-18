@@ -17,5 +17,15 @@ grep -q 'widget' "$site/index.html" || { echo "❌ widget not listed"; fail=1; }
 grep -q 'gadget' "$site/index.html" || { echo "❌ gadget not listed"; fail=1; }
 grep -q 'bookworm' "$site/index.html" || { echo "❌ release tag 'bookworm' missing"; fail=1; }
 grep -q 'trixie'   "$site/index.html" || { echo "❌ release tag 'trixie' missing"; fail=1; }
-# gadget is bookworm-only: it must not advertise trixie in its own row (spot check)
+
+# row-scoped checks: each package is rendered as one <details>...</details> line,
+# so grepping that line's own <span class="rel"> tags proves per-package release
+# scoping — not just that a codename string appears somewhere on the page.
+widget_row=$(grep '<code>widget</code>' "$site/index.html")
+gadget_row=$(grep '<code>gadget</code>' "$site/index.html")
+echo "$widget_row" | grep -q 'class="rel">bookworm</span>' && echo "$widget_row" | grep -q 'class="rel">trixie</span>' \
+  || { echo "❌ widget (any) must carry both bookworm and trixie tags"; fail=1; }
+echo "$gadget_row" | grep -q 'class="rel">bookworm</span>' || { echo "❌ gadget must carry its bookworm tag"; fail=1; }
+echo "$gadget_row" | grep -q 'class="rel">trixie</span>'  && { echo "❌ gadget (bookworm-only) must NOT advertise trixie"; fail=1; }
+
 [ "$fail" = 0 ] && echo "PASS render_test" || { echo "FAIL render_test"; exit 1; }
