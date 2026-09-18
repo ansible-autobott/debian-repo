@@ -123,6 +123,13 @@
     .panel-packages details.pkg[open] > summary { background:var(--surface-2); border-bottom:1px solid var(--line); }
     .panel-packages .pkg .name code { font-weight:600; color:var(--ink); }
     .panel-packages .pkg .ver { color:var(--ink-soft); font-size:.85rem; font-variant-numeric:tabular-nums; }
+    /* release tags (which configured suites carry this package+version) — same
+       chip shape as .arch below, but accent-tinted to read as a distinct group */
+    .panel-packages .pkg .rels { display:inline-flex; flex-wrap:wrap; gap:.25rem; margin-right:.5rem; }
+    .panel-packages .rel {
+      display:inline-block; font-family:var(--font-mono); font-size:.7rem;
+      padding:.05rem .4rem; border-radius:.4rem; background:var(--accent-tint); color:var(--accent-deep);
+    }
     .panel-packages .pkg .arches { margin-left:auto; display:flex; flex-wrap:wrap; gap:.3rem; }
     .panel-packages .arch {
       display:inline-block; font-family:var(--font-mono); font-size:.75rem;
