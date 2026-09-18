@@ -32,8 +32,12 @@ To simply track Debian **stable** instead, download the ready-made source
 (its `Suites: stable` follows whatever the current stable release is):
 
 ```bash
+sudo install -d -m 0755 /etc/apt/keyrings
+sudo curl -fsSL https://ansible-autobott.github.io/debian-repo/autobott-archive-keyring.gpg \
+  -o /etc/apt/keyrings/autobott-archive-keyring.gpg
 sudo curl -fsSL https://ansible-autobott.github.io/debian-repo/autobott.sources \
   -o /etc/apt/sources.list.d/autobott.sources
+sudo apt update
 ```
 
 Then install any tool by name, for example:
