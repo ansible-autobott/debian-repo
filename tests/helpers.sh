@@ -9,7 +9,10 @@ make_deb(){
   printf 'Package: %s\nVersion: %s\nArchitecture: %s\nMaintainer: t <t@e>\nDescription: test %s (%s)\n' \
     "$name" "$ver" "$arch" "$name" "$tag" > "$root/DEBIAN/control"
   printf '#!/bin/sh\necho %s %s\n' "$name" "$tag" > "$root/usr/bin/$name"; chmod +x "$root/usr/bin/$name"
-  mkdir -p "$outdir"; local out="$outdir/${name}_${ver}_${arch}_${tag}.deb"
+  # arch must be the trailing filename component: apt-ftparchive's --arch
+  # (used by gen-index.sh) accepts only *_<arch>.deb / *_all.deb by filename,
+  # not by the control file's Architecture: field (see apt-ftparchive(1), -a).
+  mkdir -p "$outdir"; local out="$outdir/${name}_${ver}_${tag}_${arch}.deb"
   dpkg-deb --build --root-owner-group "$root" "$out" >/dev/null; rm -rf "$root"; printf '%s\n' "$out"
 }
 
