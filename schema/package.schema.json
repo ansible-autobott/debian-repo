@@ -34,11 +34,17 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["arch", "url", "sha256"],
+        "required": ["release", "arch", "url", "sha256"],
         "properties": {
+          "release": {
+            "type": "string",
+            "pattern": "^(any|[a-z0-9][a-z0-9.-]*)$",
+            "description": "Target Debian release codename (must be one of conf/dists.conf DISTS), or \"any\" for a release-agnostic build placed into every configured suite. Membership is checked at hydrate time against the repo config, not here, so DISTS stays editable without touching this schema."
+          },
           "arch": {
-            "description": "Debian architecture (must match the .deb's Architecture field). \"all\" is an architecture-independent package; apt-ftparchive includes it in every architecture's index.",
-            "enum": ["all", "amd64", "arm64"]
+            "type": "string",
+            "pattern": "^(all|[a-z0-9][a-z0-9-]*)$",
+            "description": "Debian architecture (must match the .deb's Architecture and be one of conf/dists.conf ARCHES). \"all\" is arch-independent and indexed under every architecture."
           },
           "url": {
             "type": "string",

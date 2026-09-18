@@ -1,0 +1,8 @@
+{
+  "name": "go-deps-view",
+  "version": "1.3.0",
+  "artifacts": [
+    { "release": "bookworm", "arch": "amd64", "url": "https://example.com/g_amd64_bookworm.deb", "sha256": "1111111111111111111111111111111111111111111111111111111111111111" },
+    { "release": "trixie",   "arch": "arm64", "url": "https://example.com/g_arm64_trixie.deb",   "sha256": "2222222222222222222222222222222222222222222222222222222222222222" }
+  ]
+}
