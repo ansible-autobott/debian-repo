@@ -17,4 +17,14 @@ fail=0
 [ -f "$site/pool/trixie/main/w/widget/"*.deb ]   2>/dev/null || { echo "❌ widget missing from trixie (any should expand)"; fail=1; }
 [ -f "$site/pool/bookworm/main/g/gadget/"*.deb ] 2>/dev/null || { echo "❌ gadget missing from bookworm"; fail=1; }
 ls "$site/pool/trixie/main/g/gadget/" >/dev/null 2>&1 && { echo "❌ gadget must NOT be in trixie"; fail=1; }
+
+# unknown release subdir (not in DISTS, not "any") must fail hard, not silently skip
+site2="$tmp/_site2"; debs2="$tmp/debs2"
+make_deb "$debs2/bogus" widget 1.0 amd64 x >/dev/null
+if DISTS_CONF="$conf" "$ROOT/scripts/hydrate.sh" "$site2" "$debs2" >/dev/null 2>&1; then
+  echo "❌ hydrate must fail on unknown release subdir"; fail=1
+else
+  echo "✅ unknown release subdir rejected"
+fi
+
 [ "$fail" = 0 ] && echo "PASS hydrate_test" || { echo "FAIL hydrate_test"; exit 1; }

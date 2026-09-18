@@ -50,9 +50,10 @@ fi
 
 handle_manual() { # <deb> <release>
   dpkg-deb --info "$1" >/dev/null 2>&1 || { echo "❌ invalid .deb: $1" >&2; exit 1; }
-  local name arch cn; name=$(dpkg-deb -f "$1" Package); arch=$(dpkg-deb -f "$1" Architecture)
+  local name arch cn targets; name=$(dpkg-deb -f "$1" Package); arch=$(dpkg-deb -f "$1" Architecture)
   arch_valid "$arch" || { echo "❌ $1: arch '$arch' not in ARCHES" >&2; exit 1; }
-  for cn in $(release_targets "$2"); do guard "$name" "$cn" "$arch"; place "$1" "$name" "$(basename "$1")" "$cn"; done
+  targets=$(release_targets "$2") || exit 1
+  for cn in $targets; do guard "$name" "$cn" "$arch"; place "$1" "$name" "$(basename "$1")" "$cn"; done
   echo "   ✅ $2/$arch  $(basename "$1")"
 }
 
