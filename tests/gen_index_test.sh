@@ -33,4 +33,21 @@ fi
 [ -f "$siteE/dists/sid/main/binary-amd64/Packages" ] || { echo "❌ empty suite sid missing Packages index"; fail=1; }
 grep -q '^Suite: sid$' "$siteE/dists/sid/Release" && grep -q '^Codename: sid$' "$siteE/dists/sid/Release" || { echo "❌ sid Release Suite/Codename wrong"; fail=1; }
 
+# --arch filename footgun: a SOURCE .deb whose filename is NOT arch-trailing must still
+# be indexed. apt-ftparchive --arch selects debs by filename (*_<arch>.deb / *_all.deb),
+# ignoring the control Architecture field, so a source name like widget_9.9_amd64_EXTRA.deb
+# (arch not last) would be silently dropped — unless hydrate canonicalizes the pooled
+# filename to <Package>_<Version>_<Architecture>.deb (which it does). RED before that fix.
+confF="$tmp/distsF.conf"; printf 'DISTS="bookworm"\nALIASES=""\nARCHES="amd64"\n' > "$confF"
+siteF="$tmp/_siteF"; debsF="$tmp/debsF"; mkdir -p "$debsF/bookworm"
+srcF=$(make_deb "$tmp/buildF" widget 9.9 amd64 EXTRA)          # control Architecture: amd64
+mv "$srcF" "$debsF/bookworm/widget_9.9_amd64_EXTRA.deb"        # SOURCE name: arch NOT trailing
+DISTS_CONF="$confF" "$ROOT/scripts/hydrate.sh"   "$siteF" "$debsF"
+DISTS_CONF="$confF" "$ROOT/scripts/gen-index.sh" "$siteF" "$ROOT/conf/apt-ftparchive.conf" contact@andresbott.com
+if grep -q '^Package: widget' "$siteF/dists/bookworm/main/binary-amd64/Packages"; then
+  echo "✅ non-arch-trailing source name still indexed (pool filename canonicalized)"
+else
+  echo "❌ non-arch-trailing source name dropped from Packages index"; fail=1
+fi
+
 [ "$fail" = 0 ] && echo "PASS gen_index_test" || { echo "FAIL gen_index_test"; exit 1; }

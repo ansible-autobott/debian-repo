@@ -82,13 +82,18 @@ Each artifact gains a **`release`** field: `{release, arch, url, sha256}`.
   "version": "1.3.0",
   "homepage": "https://github.com/ansible-autobott/go-deps-view",
   "artifacts": [
-    { "release": "bookworm", "arch": "amd64", "url": ".../…_amd64_bookworm.deb", "sha256": "…" },
-    { "release": "bookworm", "arch": "arm64", "url": ".../…_arm64_bookworm.deb", "sha256": "…" },
-    { "release": "trixie",   "arch": "amd64", "url": ".../…_amd64_trixie.deb",   "sha256": "…" },
-    { "release": "trixie",   "arch": "arm64", "url": ".../…_arm64_trixie.deb",   "sha256": "…" }
+    { "release": "bookworm", "arch": "amd64", "url": ".../…_bookworm_amd64.deb", "sha256": "…" },
+    { "release": "bookworm", "arch": "arm64", "url": ".../…_bookworm_arm64.deb", "sha256": "…" },
+    { "release": "trixie",   "arch": "amd64", "url": ".../…_trixie_amd64.deb",   "sha256": "…" },
+    { "release": "trixie",   "arch": "arm64", "url": ".../…_trixie_arm64.deb",   "sha256": "…" }
   ]
 }
 ```
+
+> Asset filenames above are illustrative and must be **distinct** (GitHub Release
+> assets share one flat namespace); arch-last is recommended. `hydrate`
+> canonicalizes the pooled filename to `<Package>_<Version>_<Architecture>.deb`,
+> so `apt` indexing is correct regardless of how the asset was named.
 
 A release-agnostic (static) package stays terse — one `any` entry per arch:
 

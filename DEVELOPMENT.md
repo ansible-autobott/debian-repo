@@ -56,6 +56,9 @@ ARCHES="amd64 arm64"
 - **Moving `stable` forward** is a one-line edit: when Debian promotes, say,
   `trixie` to stable, change `ALIASES` in `conf/dists.conf` from
   `stable:bookworm` to `stable:trixie` — no script or workflow changes needed.
+  That flip changes `dists/stable/Release`'s `Codename`, so clients tracking
+  `stable` may need `sudo apt update --allow-releaseinfo-change` on their next
+  update (normal Debian behavior when a suite's codename changes).
 
 ## Setup
 
@@ -129,11 +132,14 @@ valid, empty, signed index — users can already add the repo.
           token: ${{ secrets.DEBIAN_REPO_TOKEN }}
 ```
 
-A matrix build writing `dist/bookworm/go-deps-view_1.3.0_amd64.deb`,
-`dist/trixie/go-deps-view_1.3.0_amd64.deb`, … registers one artifact per
+A matrix build writing `dist/bookworm/go-deps-view_1.3.0_bookworm_amd64.deb`,
+`dist/trixie/go-deps-view_1.3.0_trixie_amd64.deb`, … registers one artifact per
 codename+arch, each targeting only that release. Because GitHub Release assets
-share one flat namespace, per-release filenames must stay distinct (e.g.
-include the codename, as above).
+share one flat namespace, per-release filenames must stay distinct — include the
+codename (as above) and keep the arch last. The repo canonicalizes each pooled
+filename to `<name>_<version>_<arch>.deb`, so apt indexing is correct regardless
+of the asset name; the assets themselves just need to be distinct within the
+release's flat namespace.
 
 On the tool's next release that step writes `packages/<name>.json` here and pushes
 it, which triggers a publish.
@@ -167,6 +173,11 @@ git add debs/ && git commit -m "add foo 1.0.0" && git push
 
 The binary is committed to git and merged into the pool alongside the JSON-hydrated
 ones on the next publish.
+
+`make add` places the file in `debs/`, i.e. release `any` (hosted in every
+configured codename). To pin a manual binary to a single release, commit it under
+`debs/<codename>/` instead (e.g. `debs/bookworm/foo_1.0.0_amd64.deb`) — `hydrate`
+reads the subfolder name as the target release; a bare `debs/*.deb` stays `any`.
 
 ## Package reference schema
 

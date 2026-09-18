@@ -10,7 +10,16 @@ install the tools with `apt` like any other package.
 
 ## Install
 
-Trust the signing key, then add the source for **your** Debian release:
+Trust the signing key, then add a source. Pick **one** of the two:
+
+- **Match your Debian release** — recommended on the Debian releases this repo
+  publishes: **bookworm**, **trixie**, or **sid**. Installs the build made for
+  your exact release.
+- **Track `stable`** — for **Ubuntu** (jammy, noble, …) and any Debian release
+  **not** listed above (e.g. bullseye). A suite label need not match the host
+  release, so `stable` works on every host.
+
+### Match your Debian release (bookworm / trixie / sid)
 
 ```bash
 sudo install -d -m 0755 /etc/apt/keyrings
@@ -28,8 +37,15 @@ EOF
 sudo apt update
 ```
 
-To simply track Debian **stable** instead, download the ready-made source
-(its `Suites: stable` follows whatever the current stable release is):
+This writes your host's own codename as the suite, so it only works when that
+codename is one this repo publishes (`bookworm`, `trixie`, `sid`). On any other
+host — **Ubuntu**, or an unlisted Debian release — that `apt update` would 404;
+use the `stable` source below instead.
+
+### Track `stable` (Ubuntu, or any unlisted release)
+
+Download the ready-made source; its `Suites: stable` follows whatever the current
+stable release is:
 
 ```bash
 sudo install -d -m 0755 /etc/apt/keyrings

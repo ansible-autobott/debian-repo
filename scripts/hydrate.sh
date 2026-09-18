@@ -17,6 +17,12 @@ rm -rf "$SITE/pool"; for cn in $DISTS; do mkdir -p "$SITE/pool/$cn/main"; done
 placed=""
 
 place() { # <deb> <pkg> <dest-basename> <codename>
+  # Callers pass a CANONICAL basename <Package>_<Version>_<Architecture>.deb (arch-trailing),
+  # derived from the deb's own control fields — never the source asset name. apt-ftparchive
+  # --arch (gen-index.sh) selects debs by filename (*_<arch>.deb / *_all.deb), ignoring the
+  # control Architecture field, so a non-arch-trailing source name (e.g. tool_1.3.0_amd64_bookworm.deb)
+  # would be SILENTLY dropped from Packages. The canonical name is always arch-trailing and, because
+  # pools are per-codename and the collision guard rejects a repeated (package,codename,arch), unique.
   local dest="$SITE/pool/$4/main/${2:0:1}/$2"; mkdir -p "$dest"; cp "$1" "$dest/$3"
 }
 guard() { # <pkg> <codename> <arch>  — fail on a repeated (pkg,codename,arch)
@@ -42,7 +48,7 @@ if [ ${#json_files[@]} -eq 0 ]; then echo "⚠️  no package files in packages/
       [ "$p" = "$name" ]    || { echo "❌ $f: name '$name' != deb Package '$p'" >&2; rm -f "$tmp"; exit 1; }
       [ "$v" = "$version" ] || { echo "❌ $f: version '$version' != deb Version '$v'" >&2; rm -f "$tmp"; exit 1; }
       [ "$a" = "$arch" ]    || { echo "❌ $f: arch '$arch' != deb Architecture '$a'" >&2; rm -f "$tmp"; exit 1; }
-      for cn in $targets; do guard "$name" "$cn" "$arch"; place "$tmp" "$name" "$(basename "$url")" "$cn"; done
+      for cn in $targets; do guard "$name" "$cn" "$arch"; place "$tmp" "$name" "${p}_${v}_${a}.deb" "$cn"; done
       rm -f "$tmp"; echo "   ✅ $release/$arch  $(basename "$url")"
     done
   done
@@ -50,10 +56,11 @@ fi
 
 handle_manual() { # <deb> <release>
   dpkg-deb --info "$1" >/dev/null 2>&1 || { echo "❌ invalid .deb: $1" >&2; exit 1; }
-  local name arch cn targets; name=$(dpkg-deb -f "$1" Package); arch=$(dpkg-deb -f "$1" Architecture)
+  local name ver arch cn targets
+  name=$(dpkg-deb -f "$1" Package); ver=$(dpkg-deb -f "$1" Version); arch=$(dpkg-deb -f "$1" Architecture)
   arch_valid "$arch" || { echo "❌ $1: arch '$arch' not in ARCHES" >&2; exit 1; }
   targets=$(release_targets "$2") || exit 1
-  for cn in $targets; do guard "$name" "$cn" "$arch"; place "$1" "$name" "$(basename "$1")" "$cn"; done
+  for cn in $targets; do guard "$name" "$cn" "$arch"; place "$1" "$name" "${name}_${ver}_${arch}.deb" "$cn"; done
   echo "   ✅ $2/$arch  $(basename "$1")"
 }
 

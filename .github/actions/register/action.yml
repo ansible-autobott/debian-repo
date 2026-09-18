@@ -5,7 +5,7 @@ description: >-
   per-release builds in dist/<codename>/ (e.g. dist/bookworm/, dist/trixie/);
   a flat dist/*.deb is registered as release "any". Since GitHub Release
   assets share one flat namespace, per-release builds need release-distinct
-  filenames.
+  filenames — include the codename, and keep the arch last (…_<arch>.deb).
 
 inputs:
   name:
@@ -17,8 +17,10 @@ inputs:
       (dist/*.deb, registered as release "any") and a per-release layout
       (dist/<codename>/*.deb, e.g. dist/bookworm/, dist/trixie/), and the two
       may coexist. Because GitHub Release assets share one flat namespace,
-      .deb filenames across releases must stay distinct (e.g. include the
-      codename in the filename).
+      .deb filenames across releases must stay distinct: include the codename
+      and keep the arch last (e.g. name_1.3.0_bookworm_amd64.deb). The repo
+      canonicalizes each pooled filename to <name>_<version>_<arch>.deb, so apt
+      indexing is correct regardless of the asset name.
     required: false
     default: dist
   tag:
