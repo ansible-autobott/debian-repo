@@ -12,6 +12,9 @@
 /pool/
 /dists/
 
+# Subagent-driven-development scratch (ledger, briefs, review packages).
+.superpowers/
+
 # Editor / OS cruft.
 .DS_Store
 *.swp

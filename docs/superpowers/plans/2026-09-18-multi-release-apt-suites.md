@@ -181,7 +181,8 @@ git commit -m "feat: configurable release/suite matrix (conf/dists.conf + loader
 - Create: `tests/fixtures/valid/per-release.json`
 - Create: `tests/fixtures/invalid/missing-release.json`
 - Create: `tests/fixtures/invalid/bad-release.json`
-- Modify: `tests/schema_test.sh` (if it enumerates fixtures explicitly — otherwise it auto-discovers)
+- Modify: `tests/fixtures/invalid/unknown-arch.json` (repurpose — arch is no longer enum-checked; see Step 1)
+- Unchanged: `tests/schema_test.sh` — it auto-discovers fixtures by glob, so no edit is needed
 
 **Interfaces:**
 - Consumes: nothing.
@@ -240,6 +241,18 @@ Create `tests/fixtures/invalid/bad-release.json` (`release` breaks the pattern):
 
 Add `release` to every artifact in `tests/fixtures/valid/all-arch.json` (use `"any"`).
 
+Repurpose `tests/fixtures/invalid/unknown-arch.json` — under the relaxed schema `arch` is a pattern (membership moved to hydrate), so `sparc64` would now pass. Keep it an *invalid* fixture by giving it a valid `release` and an arch that breaks the pattern:
+
+```json
+{
+  "name": "example-pkg",
+  "version": "0.3.1",
+  "artifacts": [
+    { "release": "any", "arch": "a/b", "url": "https://example.com/example-pkg_0.3.1_a.deb", "sha256": "c1fce4a1d3454069fc595aea37cf7e2d786a5f832f06385e2630f656a05d4fc0" }
+  ]
+}
+```
+
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `make test` (or `bash tests/schema_test.sh`)
@@ -280,9 +293,9 @@ Replace the artifact `items` block (`schema/package.schema.json:34-55`) so `rele
       }
 ```
 
-- [ ] **Step 4: Ensure the test exercises invalid fixtures**
+- [ ] **Step 4: Confirm the harness picks up the fixtures**
 
-Confirm `tests/schema_test.sh` asserts every `tests/fixtures/valid/*.json` passes and every `tests/fixtures/invalid/*.json` fails. If it hardcodes filenames, add the four new fixtures; if it globs the directories, no change needed.
+`tests/schema_test.sh` globs `tests/fixtures/valid/*.json` and `tests/fixtures/invalid/*.json`, so the new and repurposed fixtures are exercised automatically — no edit to the harness. Confirm by reading it.
 
 - [ ] **Step 5: Run test to verify it passes**
 
@@ -360,7 +373,7 @@ site="$tmp/_site"; debs="$tmp/debs"
 make_deb "$debs" widget 1.0 amd64 any >/dev/null
 make_deb "$debs/bookworm" gadget 2.0 amd64 bk >/dev/null
 
-DISTS_CONF="$conf" ROOT_OVERRIDE="$tmp" "$ROOT/scripts/hydrate.sh" "$site" "$debs" || { echo "FAIL hydrate ran"; exit 1; }
+DISTS_CONF="$conf" "$ROOT/scripts/hydrate.sh" "$site" "$debs" || { echo "FAIL hydrate ran"; exit 1; }
 
 fail=0
 [ -f "$site/pool/bookworm/main/w/widget/"*.deb ] 2>/dev/null || { echo "❌ widget missing from bookworm"; fail=1; }
@@ -392,7 +405,7 @@ Replace the header/setup and both source loops. New content:
 set -euo pipefail
 
 SITE="${1:-_site}"
-ROOT="${ROOT_OVERRIDE:-$(cd "$(dirname "$0")/.." && pwd)}"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 LOCAL_DIR="${2:-$ROOT/debs}"
 PKG_DIR="$ROOT/packages"
 . "$(dirname "$0")/dists-lib.sh"; dists_load "${DISTS_CONF:-$ROOT/conf/dists.conf}"
@@ -490,8 +503,8 @@ site="$tmp/_site"; debs="$tmp/debs"
 make_deb "$debs" widget 1.0 amd64 any >/dev/null
 export GNUPGHOME="$tmp/gnupg"; make_test_key "$GNUPGHOME" contact@andresbott.com
 
-DISTS_CONF="$conf" ROOT_OVERRIDE="$tmp" "$ROOT/scripts/hydrate.sh" "$site" "$debs"
-DISTS_CONF="$conf" ROOT_OVERRIDE="$tmp" "$ROOT/scripts/gen-index.sh" "$site" "$ROOT/conf/apt-ftparchive.conf" contact@andresbott.com
+DISTS_CONF="$conf" "$ROOT/scripts/hydrate.sh" "$site" "$debs"
+DISTS_CONF="$conf" "$ROOT/scripts/gen-index.sh" "$site" "$ROOT/conf/apt-ftparchive.conf" contact@andresbott.com
 
 fail=0
 for s in bookworm trixie stable; do
@@ -528,7 +541,7 @@ Update the header comment (lines 1-4) to note Suite/Codename/Architectures are i
 Keep the arg parsing for `SITE CONF KEY_EMAIL`, drop the `ARCHES=("$@")` positional (arches now come from config). Source the lib after computing `ROOT`, then replace the build block (`gen-index.sh:22-40`):
 
 ```bash
-ROOT="${ROOT_OVERRIDE:-$(cd "$(dirname "$0")/.." && pwd)}"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CONF_ABS="$ROOT/$CONF"; [ -f "$CONF_ABS" ] || CONF_ABS="$CONF"
 . "$(dirname "$0")/dists-lib.sh"; dists_load "${DISTS_CONF:-$ROOT/conf/dists.conf}"
 
@@ -632,9 +645,9 @@ site="$tmp/_site"; debs="$tmp/debs"
 make_deb "$debs" widget 1.0 amd64 any >/dev/null       # any -> both suites
 make_deb "$debs/bookworm" gadget 2.0 amd64 bk >/dev/null
 export GNUPGHOME="$tmp/gnupg"; make_test_key "$GNUPGHOME" contact@andresbott.com
-DISTS_CONF="$conf" ROOT_OVERRIDE="$tmp" "$ROOT/scripts/hydrate.sh" "$site" "$debs"
-DISTS_CONF="$conf" ROOT_OVERRIDE="$tmp" "$ROOT/scripts/gen-index.sh" "$site" "$ROOT/conf/apt-ftparchive.conf" contact@andresbott.com
-DISTS_CONF="$conf" ROOT_OVERRIDE="$tmp" "$ROOT/scripts/render-index.sh" "$site"
+DISTS_CONF="$conf" "$ROOT/scripts/hydrate.sh" "$site" "$debs"
+DISTS_CONF="$conf" "$ROOT/scripts/gen-index.sh" "$site" "$ROOT/conf/apt-ftparchive.conf" contact@andresbott.com
+DISTS_CONF="$conf" "$ROOT/scripts/render-index.sh" "$site"
 
 fail=0
 grep -q 'widget' "$site/index.html" || { echo "❌ widget not listed"; fail=1; }
@@ -652,7 +665,7 @@ Expected: FAIL — render reads only `dists/stable/main`, which no longer exists
 
 - [ ] **Step 3: Rewrite the row-collection in `scripts/render-index.sh`**
 
-After `ROOT=...`, add: `. "$(dirname "$0")/dists-lib.sh"; dists_load "${DISTS_CONF:-$ROOT/conf/dists.conf}"`. Replace the `mapfile ... dists/stable/main` discovery + first `awk` (lines 27-79) so each Packages line is tagged with its codename and rows carry a release set:
+After `ROOT=...`, add: `. "$(dirname "$0")/dists-lib.sh"; dists_load "${DISTS_CONF:-$ROOT/conf/dists.conf}"`, then make the arch tagline use the configured arches — `read -ra ARCHES <<< "$ARCHES"` (the script no longer takes arch positional args; `gen-index` now calls it with `$SITE` only, so this overrides the positional fallback at lines 17-19). Replace the `mapfile ... dists/stable/main` discovery + first `awk` (lines 27-79) so each Packages line is tagged with its codename and rows carry a release set:
 
 ```bash
 rows=""
@@ -937,6 +950,6 @@ git commit -m "docs: per-release install + suites/aliases developer docs"
 
 **Placeholder scan:** No TBD/TODO; every code and test step carries real content. The only intentional partial is CSS variable names in Task 5 Step 4 ("match the actual variable names in `index.html`") — the executor must read `index.html`'s existing `.arch` rule; this is a lookup, not a placeholder.
 
-**Type/name consistency:** `dists_load`, `dists_has`, `arch_valid`, `release_targets`, `alias_pairs`, `place` (4-arg), `guard`, `handle_manual`, `sign_dist`, and the `DISTS_CONF`/`ROOT_OVERRIDE`/second-positional-debs test hooks are used consistently across Tasks 1, 3, 4, 5. Artifact keys `{release, arch, url, sha256}` match across schema (2), hydrate (3), register (6). Alias Release fields `Suite=<alias>`/`Codename=<target>` consistent between Task 4 code and its test.
+**Type/name consistency:** `dists_load`, `dists_has`, `arch_valid`, `release_targets`, `alias_pairs`, `place` (4-arg), `guard`, `handle_manual`, `sign_dist`, and the `DISTS_CONF` + second-positional-debs test hooks are used consistently across Tasks 1, 3, 4, 5. Artifact keys `{release, arch, url, sha256}` match across schema (2), hydrate (3), register (6). Alias Release fields `Suite=<alias>`/`Codename=<target>` consistent between Task 4 code and its test.
 
-**Note for executor:** hydrate/gen-index/render take two test-only hooks (`DISTS_CONF` env, `ROOT_OVERRIDE` env, and hydrate's optional 2nd positional debs dir) so the integration tests stay hermetic; production Makefile calls use the defaults and pass none of them.
+**Note for executor:** the integration tests stay hermetic via one env hook, `DISTS_CONF` (the config path) read by hydrate/gen-index/render, plus hydrate's optional 2nd positional debs dir. `ROOT` stays the real repo root so scripts, the `index.html` template, and the committed keyring/`.sources` resolve; production Makefile calls pass none of the hooks and use the defaults.
