@@ -1,8 +1,11 @@
-# autobott Debian repository — build, sign and publish a static APT repo.
+# autobott Debian repository — build, sign and publish a static APT repo,
+# across multiple Debian releases at once (a pool + signed index per
+# codename, plus rolling-suite aliases) — see conf/dists.conf for the set.
 #
 # Two ways a package enters the repo:
 #   1. Automated: an app's CI commits packages/<app>.json (a signed reference to
-#      its release .deb); `hydrate` downloads + verifies it.
+#      its release .deb, targeting one codename or "any"); `hydrate` downloads +
+#      verifies it into that release's pool.
 #   2. Manual:    `make add DEB=foo.deb` stages a binary into debs/ which you
 #      commit directly. Both are merged into the published pool.
 #
@@ -48,8 +51,8 @@ validate: ## validate packages/*.json against the JSON schema
 	 check-jsonschema --schemafile $(SCHEMA) $$files && echo "✅ all package files valid"
 
 .PHONY: test
-test: ## run schema regression tests (fixtures under tests/)
-	@./tests/schema_test.sh
+test: ## run all shell tests (schema fixtures + build integration)
+	@fail=0; for t in tests/*_test.sh; do echo ">> $$t"; bash "$$t" || fail=1; done; [ $$fail -eq 0 ] && echo "✅ all tests passed"
 
 .PHONY: hydrate
 hydrate: ## assemble $(SITE)/pool from packages/*.json (download+verify) and debs/
@@ -72,7 +75,7 @@ add: ## stage a local .deb into debs/ for manual, git-committed hosting: make ad
 	 echo ">> commit it (git add debs/ && git commit); the push publishes it"
 
 .PHONY: register
-register: ## generate a packages/<name>.json locally from built debs: make register NAME=app REPO=owner/app TAG=vX.Y.Z [DIST=dist]
+register: ## generate a packages/<name>.json locally from built debs (DIST may be flat dist/*.deb = "any", or dist/<release>/*.deb per codename): make register NAME=app REPO=owner/app TAG=vX.Y.Z [DIST=dist]
 	@[ "$(NAME)" ] && [ "$(REPO)" ] && [ "$(TAG)" ] || ( echo ">> usage: make register NAME=go-deps-view REPO=ansible-autobott/go-deps-view TAG=v1.3.0 [DIST=dist]"; exit 1 )
 	@./scripts/register.sh --name "$(NAME)" --dist-dir "$(DIST)" --repo "$(REPO)" --tag "$(TAG)" --out "packages/$(NAME).json"
 	@echo ">> commit packages/$(NAME).json to publish (normally the app CI does this via the register action)"

@@ -4,26 +4,58 @@ How this APT repository works, how to set it up from scratch, and how to operate
 it as a maintainer. For end-user install instructions see `README.md`.
 
 - **URL:** https://ansible-autobott.github.io/debian-repo
-- **Suite / component:** `stable` / `main` · **Architectures:** `amd64`, `arm64`
+- **Suites:** per Debian release — `bookworm`, `trixie`, `sid` (+ aliases `stable`/`testing`/`unstable`) · **Component:** `main` · **Architectures:** `amd64`, `arm64`
 
 ## How it works
 
 The git tree **never stores binaries** — it stores *references*. The binaries are
 downloaded, the index is built and GPG-signed **in CI**, and the result is
-published to GitHub Pages. A package enters the repo in one of two ways:
+published to GitHub Pages. The repo publishes several Debian releases at once —
+a pool and a signed index per codename, plus rolling-suite aliases — all driven
+from one config file, `conf/dists.conf` (see [Releases & suites](#releases--suites)
+below). A package enters the repo in one of two ways:
 
 1. **Automated (per-app JSON).** Each app owns one file, `packages/<app>.json`,
-   holding its current version and a checksummed URL per architecture. The app's
-   own release CI writes and commits that file (via the `register` action). Because
-   every app owns a separate file, two releases never conflict.
+   holding its current version and a checksummed URL per architecture *and*
+   target release. The app's own release CI writes and commits that file (via
+   the `register` action). Because every app owns a separate file, two releases
+   never conflict.
 2. **Manual (committed binary).** `make add DEB=foo.deb` stages a `.deb` into the
    git-tracked `debs/` folder; you commit it and it's hosted directly.
 
 On every push to `main`, `.github/workflows/publish.yml` **rebuilds the whole repo**:
-validate → download + verify every `packages/*.json` and merge `debs/` → sign →
-deploy to Pages. The full set is reconstructed each run, so nothing clobbers
-anything, and a failed download aborts the publish (the previous deployment stays
-live) rather than shipping a partial index.
+validate → download + verify every `packages/*.json` and merge `debs/` into each
+targeted release's pool → sign every codename's and alias's index → deploy to
+Pages. The full set is reconstructed each run, so nothing clobbers anything, and
+a failed download aborts the publish (the previous deployment stays live) rather
+than shipping a partial index.
+
+## Releases & suites
+
+Which Debian codenames this repo publishes, and the rolling-suite aliases on top
+of them, are configured in one place: [`conf/dists.conf`](conf/dists.conf).
+`hydrate.sh`, `gen-index.sh`, `render-index.sh`, and the Makefile all load it
+through `scripts/dists-lib.sh` — no release name is hardcoded anywhere else.
+
+```bash
+DISTS="bookworm trixie sid"                            # codenames: each gets pool/<cn>/main/ + signed dists/<cn>/
+ALIASES="stable:bookworm testing:trixie unstable:sid"  # <alias>:<target>: signed dists/<alias>/ mirroring target's Packages
+ARCHES="amd64 arm64"
+```
+
+- **`DISTS`** — the codenames that get a real `pool/<codename>/main/` and a
+  signed `dists/<codename>/`. An artifact's `release` field in a
+  `packages/<name>.json` (or a `debs/<codename>/` subfolder) must name one of
+  these, or the special value **`any`**, which expands to *every* codename in
+  `DISTS` — the artifact is placed into each one's pool.
+- **`ALIASES`** — rolling suites (`stable`, `testing`, `unstable`) that point at
+  one `DISTS` codename each. Every alias publishes its own signed
+  `dists/<alias>/Release` (`Suite=<alias>`, `Codename=<target>`), built by
+  copying the target codename's `Packages` files — there's no separate pool for
+  an alias.
+- **Moving `stable` forward** is a one-line edit: when Debian promotes, say,
+  `trixie` to stable, change `ALIASES` in `conf/dists.conf` from
+  `stable:bookworm` to `stable:trixie` — no script or workflow changes needed.
 
 ## Setup
 
@@ -82,15 +114,26 @@ valid, empty, signed index — users can already add the repo.
     repo you can access). Create one with the `repo` scope; if the org enforces
     SAML SSO, click *Configure SSO → Authorize* for `ansible-autobott`.
 - Add one step to the tool's release workflow, after its `.deb` files are built
-  (e.g. by goreleaser into `dist/`):
+  (e.g. by goreleaser into `dist/`). A single, release-agnostic build is
+  unchanged — a flat `dist/*.deb` registers as release `any` (placed into every
+  configured codename). A tool that builds *per Debian release* (e.g. a matrix
+  job compiling separately for `bookworm`/`trixie`/`sid`) instead writes each
+  build into `dist/<codename>/`, and `register` reads the directory name as the
+  target release:
 
 ```yaml
       - uses: ansible-autobott/debian-repo/.github/actions/register@main
         with:
           name: go-deps-view          # must match the .deb's Package field
-          dist-dir: dist              # where the .deb files were written
+          dist-dir: dist              # dist/*.deb = "any"; dist/<codename>/*.deb targets one release
           token: ${{ secrets.DEBIAN_REPO_TOKEN }}
 ```
+
+A matrix build writing `dist/bookworm/go-deps-view_1.3.0_amd64.deb`,
+`dist/trixie/go-deps-view_1.3.0_amd64.deb`, … registers one artifact per
+codename+arch, each targeting only that release. Because GitHub Release assets
+share one flat namespace, per-release filenames must stay distinct (e.g.
+include the codename, as above).
 
 On the tool's next release that step writes `packages/<name>.json` here and pushes
 it, which triggers a publish.
@@ -137,15 +180,17 @@ ones on the next publish.
   "homepage": "https://github.com/ansible-autobott/go-deps-view",
   "description": "Browser viewer for a Go module's dependency graph",
   "artifacts": [
-    { "arch": "amd64", "url": "https://github.com/ansible-autobott/go-deps-view/releases/download/v1.3.0/go-deps-view_1.3.0_amd64.deb", "sha256": "<64 hex>" },
-    { "arch": "arm64", "url": "https://github.com/ansible-autobott/go-deps-view/releases/download/v1.3.0/go-deps-view_1.3.0_arm64.deb", "sha256": "<64 hex>" }
+    { "release": "any", "arch": "amd64", "url": "https://github.com/ansible-autobott/go-deps-view/releases/download/v1.3.0/go-deps-view_1.3.0_amd64.deb", "sha256": "<64 hex>" },
+    { "release": "any", "arch": "arm64", "url": "https://github.com/ansible-autobott/go-deps-view/releases/download/v1.3.0/go-deps-view_1.3.0_arm64.deb", "sha256": "<64 hex>" }
   ]
 }
 ```
 
-Required: `name`, `version`, and `artifacts[]` (each with `arch`, `url`, `sha256`);
-`additionalProperties` is `false` and URLs must be HTTPS. At publish time each
-download is checked against `sha256`, and the `.deb`'s own
+Required: `name`, `version`, and `artifacts[]` (each with `release`, `arch`, `url`,
+`sha256`). `release` is the target Debian codename (one of `conf/dists.conf`'s
+`DISTS`) or `any` — every configured codename, as used above since this build
+isn't release-specific. `additionalProperties` is `false` and URLs must be HTTPS.
+At publish time each download is checked against `sha256`, and the `.deb`'s own
 `Package`/`Version`/`Architecture` must match `name`/`version`/`arch` — otherwise
 the build fails and the previous deployment stays live.
 
@@ -211,12 +256,16 @@ keyring is the public key, already committed to the tree.
 ## Layout
 
 ```
-packages/<app>.json        # per-app reference (machine-modifiable; app owns its file)
-debs/                      # manually-added, committed .deb binaries
-schema/                    # JSON Schema for packages/*.json
-conf/                      # apt-ftparchive Release settings
-scripts/                   # register (app -> JSON) + hydrate + index-generation
-.github/actions/register/  # composite action apps call to register a release
-.github/workflows/         # publish.yml — build + sign + deploy on push to main
-_site/                     # built site (git-ignored) — what CI uploads to Pages
+packages/<app>.json          # per-app reference (machine-modifiable; app owns its file)
+debs/                        # manually-added, committed .deb binaries
+schema/                      # JSON Schema for packages/*.json
+conf/                        # apt-ftparchive Release settings
+conf/dists.conf              # DISTS/ALIASES/ARCHES — the releases + suite aliases this repo publishes
+scripts/                     # register (app -> JSON) + hydrate + index-generation
+scripts/dists-lib.sh         # loads + validates conf/dists.conf for hydrate/gen-index/render-index
+.github/actions/register/    # composite action apps call to register a release
+.github/workflows/           # publish.yml — build + sign + deploy on push to main
+_site/                       # built site (git-ignored) — what CI uploads to Pages
+_site/pool/<codename>/main/  # per-codename pool of .deb files (hydrated from packages/ + debs/)
+_site/dists/<suite>/         # signed index per codename AND per alias (stable/testing/unstable)
 ```
