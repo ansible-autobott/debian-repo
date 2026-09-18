@@ -18,4 +18,19 @@ for s in bookworm trixie stable; do
 done
 grep -q '^Suite: stable$'    "$site/dists/stable/Release" || { echo "❌ alias Suite wrong"; fail=1; }
 grep -q '^Codename: bookworm$' "$site/dists/stable/Release" || { echo "❌ alias Codename wrong"; fail=1; }
+
+# empty-suite: a configured codename that nothing targets must still get a signed Release
+confE="$tmp/distsE.conf"; printf 'DISTS="bookworm sid"\nALIASES=""\nARCHES="amd64"\n' > "$confE"
+siteE="$tmp/_siteE"; debsE="$tmp/debsE"
+make_deb "$debsE/bookworm" widget 1.0 amd64 bk >/dev/null   # bookworm only => sid stays empty
+DISTS_CONF="$confE" "$ROOT/scripts/hydrate.sh"   "$siteE" "$debsE"
+DISTS_CONF="$confE" "$ROOT/scripts/gen-index.sh" "$siteE" "$ROOT/conf/apt-ftparchive.conf" contact@andresbott.com
+if [ -f "$siteE/dists/sid/InRelease" ] && gpg --verify "$siteE/dists/sid/InRelease" >/dev/null 2>&1; then
+  echo "✅ empty suite sid signed"
+else
+  echo "❌ empty suite sid must have a verifying InRelease"; fail=1
+fi
+[ -f "$siteE/dists/sid/main/binary-amd64/Packages" ] || { echo "❌ empty suite sid missing Packages index"; fail=1; }
+grep -q '^Suite: sid$' "$siteE/dists/sid/Release" && grep -q '^Codename: sid$' "$siteE/dists/sid/Release" || { echo "❌ sid Release Suite/Codename wrong"; fail=1; }
+
 [ "$fail" = 0 ] && echo "PASS gen_index_test" || { echo "FAIL gen_index_test"; exit 1; }
