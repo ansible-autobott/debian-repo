@@ -27,4 +27,14 @@ else
   echo "✅ unknown release subdir rejected"
 fi
 
+# collision guard: two debs, same Package/Version/Arch, both -> bookworm => hard fail
+site3="$tmp/_site3"; debs3="$tmp/debs3"
+make_deb "$debs3/bookworm" widget 1.0 amd64 one >/dev/null
+make_deb "$debs3/bookworm" widget 1.0 amd64 two >/dev/null
+if DISTS_CONF="$conf" "$ROOT/scripts/hydrate.sh" "$site3" "$debs3" >/dev/null 2>&1; then
+  echo "❌ hydrate must fail on duplicate (pkg,codename,arch)"; fail=1
+else
+  echo "✅ collision guard rejected duplicate"
+fi
+
 [ "$fail" = 0 ] && echo "PASS hydrate_test" || { echo "FAIL hydrate_test"; exit 1; }
