@@ -20,7 +20,7 @@ SITE        ?= _site
 DIST        ?= dist
 FTPCONF     := conf/apt-ftparchive.conf
 SCHEMA      := schema/package.schema.json
-ARCHES      := amd64 arm64
+ARCHES      := $(shell . ./conf/dists.conf 2>/dev/null && echo $$ARCHES)
 KEYRING_PUB := autobott-archive-keyring.gpg
 KEYRING_ASC := autobott-archive-keyring.asc
 KEY_SECRET_ASC := autobott-signing-key.secret.asc
@@ -57,7 +57,7 @@ hydrate: ## assemble $(SITE)/pool from packages/*.json (download+verify) and deb
 
 .PHONY: build
 build: require-key ## generate + GPG-sign the index in $(SITE) from the pool
-	@THEME="$(THEME)" ./scripts/gen-index.sh "$(SITE)" "$(FTPCONF)" "$(KEY_EMAIL)" $(ARCHES)
+	@THEME="$(THEME)" ./scripts/gen-index.sh "$(SITE)" "$(FTPCONF)" "$(KEY_EMAIL)"
 	@echo ">> tip: 'make serve' to test locally, or commit+push to publish via CI"
 
 .PHONY: add
@@ -78,13 +78,15 @@ register: ## generate a packages/<name>.json locally from built debs: make regis
 	@echo ">> commit packages/$(NAME).json to publish (normally the app CI does this via the register action)"
 
 .PHONY: verify
-verify: require-key ## sanity-check a built site: signature valid + pooled debs parse
-	@[ -f "$(SITE)/dists/stable/InRelease" ] || ( echo "❌ no built site; run 'make publish'"; exit 1 )
-	@gpg --verify "$(SITE)/dists/stable/InRelease" >/dev/null 2>&1 && echo "✅ signature OK" || ( echo "❌ signature verification failed"; exit 1 )
-	@fail=0; debs=$$(find "$(SITE)/pool" -name '*.deb' 2>/dev/null); \
-	 if [ -z "$$debs" ]; then echo "⚠️  no .deb files in the pool"; fi; \
-	 for d in $$debs; do dpkg-deb --info "$$d" >/dev/null 2>&1 && echo "✅ $$d" || { echo "❌ $$d"; fail=1; }; done; \
-	 [ $$fail -eq 0 ] || exit 1
+verify: require-key ## sanity-check a built site: every suite's signature valid + pooled debs parse
+	@. ./conf/dists.conf; ok=1; \
+	 for s in $$DISTS $$(for a in $$ALIASES; do echo $${a%%:*}; done); do \
+	   if gpg --verify "$(SITE)/dists/$$s/InRelease" >/dev/null 2>&1; then echo "✅ $$s signature OK"; \
+	   else echo "❌ $$s signature failed (run 'make publish'?)"; ok=0; fi; done; \
+	 debs=$$(find "$(SITE)/pool" -name '*.deb' 2>/dev/null); \
+	 [ -n "$$debs" ] || echo "⚠️  no .deb files in the pool"; \
+	 for d in $$debs; do dpkg-deb --info "$$d" >/dev/null 2>&1 || { echo "❌ $$d"; ok=0; }; done; \
+	 [ $$ok -eq 1 ]
 
 .PHONY: serve
 serve: ## serve the built site at http://localhost:8000 (renders demo content if the repo has no packages)
