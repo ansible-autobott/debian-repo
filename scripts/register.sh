@@ -28,21 +28,24 @@ ver="${TAG#v}"
 base="https://github.com/${SRC_REPO}/releases/download/${TAG}"
 
 shopt -s nullglob
-debs=("$DIST_DIR"/*.deb)
-[ ${#debs[@]} -gt 0 ] || { echo "❌ no .deb files in '$DIST_DIR'" >&2; exit 1; }
+rels=(); debs=()
+for d in "$DIST_DIR"/*.deb;  do rels+=("any"); debs+=("$d"); done          # bare = any
+for sub in "$DIST_DIR"/*/;   do [ -d "$sub" ] || continue; r=$(basename "$sub")
+  for d in "$sub"*.deb; do rels+=("$r"); debs+=("$d"); done; done
+[ ${#debs[@]} -gt 0 ] || { echo "❌ no .deb files in '$DIST_DIR' (flat or dist/<release>/)" >&2; exit 1; }
 
-# every .deb in the dir must belong to this package
+# every .deb must belong to this package
 for d in "${debs[@]}"; do
   p=$(dpkg-deb -f "$d" Package)
   [ "$p" = "$NAME" ] || { echo "❌ $(basename "$d"): Package '$p' != --name '$NAME'" >&2; exit 1; }
 done
 
-artifacts=$(for d in "${debs[@]}"; do
-  jq -n --arg arch "$(dpkg-deb -f "$d" Architecture)" \
-        --arg url  "$base/$(basename "$d")" \
-        --arg sha  "$(sha256sum "$d" | cut -d' ' -f1)" \
-        '{arch:$arch, url:$url, sha256:$sha}'
-done | jq -s 'sort_by(.arch)')
+artifacts=$(for idx in "${!debs[@]}"; do
+  d="${debs[$idx]}"; r="${rels[$idx]}"
+  jq -n --arg release "$r" --arg arch "$(dpkg-deb -f "$d" Architecture)" \
+        --arg url "$base/$(basename "$d")" --arg sha "$(sha256sum "$d" | cut -d' ' -f1)" \
+        '{release:$release, arch:$arch, url:$url, sha256:$sha}'
+done | jq -s 'sort_by(.release, .arch)')
 
 mkdir -p "$(dirname "$OUT")"
 jq -n --arg name "$NAME" --arg version "$ver" --argjson artifacts "$artifacts" \

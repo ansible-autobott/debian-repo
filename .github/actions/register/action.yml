@@ -1,14 +1,24 @@
 name: Register in autobott APT repo
 description: >-
   Generate and commit packages/<name>.json referencing this release's .deb
-  artifacts, so the autobott APT repository picks the new version up.
+  artifacts, so the autobott APT repository picks the new version up. Place
+  per-release builds in dist/<codename>/ (e.g. dist/bookworm/, dist/trixie/);
+  a flat dist/*.deb is registered as release "any". Since GitHub Release
+  assets share one flat namespace, per-release builds need release-distinct
+  filenames.
 
 inputs:
   name:
     description: Debian package name (must match the .deb's Package field).
     required: true
   dist-dir:
-    description: Directory containing the built .deb files.
+    description: >-
+      Directory containing the built .deb files. Supports both a flat layout
+      (dist/*.deb, registered as release "any") and a per-release layout
+      (dist/<codename>/*.deb, e.g. dist/bookworm/, dist/trixie/), and the two
+      may coexist. Because GitHub Release assets share one flat namespace,
+      .deb filenames across releases must stay distinct (e.g. include the
+      codename in the filename).
     required: false
     default: dist
   tag:
