@@ -38,8 +38,8 @@ dists_load() {
   [ -f "$conf" ] || { echo "❌ missing config: $conf" >&2; return 1; }
   # shellcheck disable=SC1090
   . "$conf"
-  : "${DISTS:?DISTS must be set in $conf}"
-  : "${ARCHES:?ARCHES must be set in $conf}"
+  [ -n "${DISTS:-}" ]  || { echo "❌ DISTS must be set in $conf" >&2; return 1; }
+  [ -n "${ARCHES:-}" ] || { echo "❌ ARCHES must be set in $conf" >&2; return 1; }
   ALIASES="${ALIASES:-}"
   dists_validate
 }
