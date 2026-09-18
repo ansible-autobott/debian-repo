@@ -19,7 +19,10 @@ make_deb(){
 # make_test_key <gnupghome> <email> — fast throwaway signing key
 make_test_key(){
   install -d -m 700 "$1"
-  GNUPGHOME="$1" gpg --batch --quick-generate-key "test <$2>" default sign never >/dev/null 2>&1 && return 0
+  # --pinentry-mode loopback + empty --passphrase keep this non-interactive:
+  # --batch alone does NOT stop gpg-agent popping a GUI pinentry for key generation.
+  GNUPGHOME="$1" gpg --batch --pinentry-mode loopback --passphrase '' \
+    --quick-generate-key "test <$2>" default sign never >/dev/null 2>&1 && return 0
   GNUPGHOME="$1" gpg --batch --gen-key >/dev/null 2>&1 <<EOF
 %no-protection
 Key-Type: eddsa
