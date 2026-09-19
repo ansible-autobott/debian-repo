@@ -1,11 +1,14 @@
 name: Register in autobott APT repo
 description: >-
-  Generate and commit packages/<name>.json referencing this release's .deb
+  Generate and commit a packages/*.json reference to this release's .deb
   artifacts, so the autobott APT repository picks the new version up. Place
-  per-release builds in dist/<codename>/ (e.g. dist/bookworm/, dist/trixie/);
-  a flat dist/*.deb is registered as release "any". Since GitHub Release
-  assets share one flat namespace, per-release builds need release-distinct
-  filenames — include the codename, and keep the arch last (…_<arch>.deb).
+  per-release builds in dist/<codename>/ (e.g. dist/trixie/, dist/sid/); a flat
+  dist/*.deb is registered as release "any". Since GitHub Release assets share
+  one flat namespace, per-release builds need release-distinct filenames —
+  include the codename, and keep the arch last (…_<arch>.deb). The version is
+  read from the .deb itself, so the tag need not be a bare version. One file
+  holds one version; if your suites ship different versions, call this once per
+  version group with a distinct `file` (see that input).
 
 inputs:
   name:
@@ -23,6 +26,20 @@ inputs:
       indexing is correct regardless of the asset name.
     required: false
     default: dist
+  file:
+    description: >-
+      Package-reference file to write, relative to the APT repo root; must be
+      packages/<something>.json. Defaults to packages/<name>.json. One file
+      describes ONE version, so an app that ships a different version to
+      different suites (e.g. an older upstream release for stable, whose
+      libraries can't build the newest) registers each version group into its
+      own file — packages/klassy.trixie.json, packages/klassy.sid.json — each
+      naming the same package. All files are merged at publish time; the only
+      rule is that no two may claim the same (package, release, arch). A file
+      per release also keeps releases independent: re-publishing one suite never
+      rewrites another's entry.
+    required: false
+    default: ''
   tag:
     description: Release tag whose assets host the .deb files.
     required: false
@@ -48,6 +65,7 @@ runs:
         GH_TOKEN: ${{ inputs.token }}
         IN_NAME: ${{ inputs.name }}
         IN_DIST: ${{ inputs.dist-dir }}
+        IN_FILE: ${{ inputs.file }}
         IN_TAG: ${{ inputs.tag }}
         IN_SRC: ${{ inputs.source-repo }}
         IN_REPO: ${{ inputs.repo }}
@@ -56,23 +74,35 @@ runs:
         # validator for the fail-fast schema check (publish CI validates too)
         pipx install check-jsonschema >/dev/null 2>&1 || pip install --quiet check-jsonschema || true
 
+        # Which reference file to write. Constrained to packages/*.json so a
+        # caller's typo can't write (and commit) somewhere else in the repo.
+        file="${IN_FILE:-}"; [ -n "$file" ] || file="packages/${IN_NAME}.json"
+        case "$file" in
+          packages/*.json) ;;
+          *) echo "❌ file must be packages/<something>.json, got '$file'" >&2; exit 1;;
+        esac
+        case "$file" in
+          */../*|*/..|../*|..) echo "❌ file must not traverse out of packages/: '$file'" >&2; exit 1;;
+        esac
+
         work="$RUNNER_TEMP/aptrepo"
         rm -rf "$work"
         git clone "https://x-access-token:${GH_TOKEN}@github.com/${IN_REPO}.git" "$work"
 
-        # generate + validate packages/<name>.json (dist-dir is relative to the app workspace)
+        # generate + validate the reference (dist-dir is relative to the app workspace)
         "$work/scripts/register.sh" \
           --name "$IN_NAME" --dist-dir "$IN_DIST" --repo "$IN_SRC" \
-          --tag "$IN_TAG" --out "$work/packages/${IN_NAME}.json"
+          --tag "$IN_TAG" --out "$work/$file"
 
         cd "$work"
         git config user.name  "autobott-bot"
         git config user.email "bot@users.noreply.github.com"
-        git add "packages/${IN_NAME}.json"
+        git add "$file"
         if git diff --cached --quiet; then
-          echo "no change — ${IN_NAME} already up to date"; exit 0
+          echo "no change — $file already up to date"; exit 0
         fi
-        git commit -m "${IN_NAME} ${IN_TAG#v}"
+        # the version comes from the .deb, not the tag (see scripts/register.sh)
+        git commit -m "${IN_NAME} $(jq -r .version "$file") ($file)"
         for i in 1 2 3 4 5; do
           if git pull --rebase origin main && git push origin main; then exit 0; fi
           sleep $((RANDOM % 5 + 1))
