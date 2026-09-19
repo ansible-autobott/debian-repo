@@ -31,10 +31,29 @@ fi
 site3="$tmp/_site3"; debs3="$tmp/debs3"
 make_deb "$debs3/bookworm" widget 1.0 amd64 one >/dev/null
 make_deb "$debs3/bookworm" widget 1.0 amd64 two >/dev/null
-if DISTS_CONF="$conf" "$ROOT/scripts/hydrate.sh" "$site3" "$debs3" >/dev/null 2>&1; then
+if err=$(DISTS_CONF="$conf" "$ROOT/scripts/hydrate.sh" "$site3" "$debs3" 2>&1); then
   echo "❌ hydrate must fail on duplicate (pkg,codename,arch)"; fail=1
 else
   echo "✅ collision guard rejected duplicate"
+  # the message must name BOTH claimants: with several packages/*.json per app this
+  # is the failure you hit, and "duplicate artifact: x for y/z" alone is undebuggable
+  printf '%s' "$err" | grep -q "widget_1.0_one_amd64.deb" && printf '%s' "$err" | grep -q "widget_1.0_two_amd64.deb" \
+    || { echo "❌ collision message must name both sources, got: $err"; fail=1; }
+fi
+
+# Same package name, DIFFERENT version per release (the klassy shape) must merge:
+# one version for bookworm, another for trixie. Different releases never collide,
+# so both land — this is what lets an app publish per-suite versions.
+site4="$tmp/_site4"; debs4="$tmp/debs4"
+make_deb "$debs4/bookworm" klassy '6.5.3-1~bookworm' amd64 bkw >/dev/null
+make_deb "$debs4/trixie"   klassy '6.7.2-1~trixie'   amd64 trx >/dev/null
+if DISTS_CONF="$conf" "$ROOT/scripts/hydrate.sh" "$site4" "$debs4" >/dev/null 2>&1; then
+  [ -f "$site4/pool/bookworm/main/k/klassy/klassy_6.5.3-1~bookworm_amd64.deb" ] \
+    || { echo "❌ klassy 6.5.3 missing from bookworm pool"; fail=1; }
+  [ -f "$site4/pool/trixie/main/k/klassy/klassy_6.7.2-1~trixie_amd64.deb" ] \
+    || { echo "❌ klassy 6.7.2 missing from trixie pool"; fail=1; }
+else
+  echo "❌ hydrate must accept one package at a different version per release"; fail=1
 fi
 
 [ "$fail" = 0 ] && echo "PASS hydrate_test" || { echo "FAIL hydrate_test"; exit 1; }

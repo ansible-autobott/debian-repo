@@ -123,6 +123,12 @@
     .panel-packages details.pkg[open] > summary { background:var(--surface-2); border-bottom:1px solid var(--line); }
     .panel-packages .pkg .name code { font-weight:600; color:var(--ink); }
     .panel-packages .pkg .ver { color:var(--ink-soft); font-size:.85rem; font-variant-numeric:tabular-nums; }
+    /* a package is listed ONCE even when it ships a different version per release:
+       .ver is then the newest and .ver-multi says how many others exist (the
+       expanded body names each release's own version) */
+    .panel-packages .pkg .ver-multi {
+      margin-left:-.45rem; font-size:.72rem; color:var(--ink-soft); opacity:.75; white-space:nowrap;
+    }
     /* release tags (which configured suites carry this package+version) — same
        chip look as .arch below (same background/text vars), own tag group */
     .panel-packages .pkg .rels { display:inline-flex; flex-wrap:wrap; gap:.25rem; margin-right:.5rem; }
@@ -159,6 +165,12 @@
     .panel-packages .downloads a:hover { box-shadow:inset 0 0 0 1.5px var(--accent); }
     .panel-packages .downloads a::before { content:"\2b07"; font-size:.78rem; opacity:.8; }
     .panel-packages .downloads a .s { color:var(--ink-soft); font-weight:500; font-size:.78rem; font-variant-numeric:tabular-nums; }
+    /* per-download version — emitted only when the arches inside one release
+       disagree, so the release heading cannot state a single truthful version */
+    .panel-packages .downloads a .dl-v {
+      font-family:var(--font-mono); font-weight:500; font-size:.72rem;
+      color:var(--ink-soft); font-variant-numeric:tabular-nums;
+    }
     .empty {
       margin:0; padding:2.6rem 1.4rem; text-align:center; color:var(--ink-soft);
       background:var(--surface); border:1px dashed var(--line); border-radius:var(--r-card);
@@ -170,7 +182,14 @@
     .panel-packages .downloads-by-rel { display:flex; flex-direction:column; gap:.7rem; }
     .panel-packages .rel-group { display:flex; flex-direction:column; gap:.35rem; }
     .panel-packages .rel-group .rel-h {
+      display:flex; align-items:baseline; gap:.4rem;
       font-family:var(--font-mono); font-size:.72rem; color:var(--ink-soft);
+    }
+    /* the version this release actually carries — emitted only when the releases
+       disagree, so it never just repeats the version already in the summary */
+    .panel-packages .rel-group .rel-h .rel-v {
+      padding:.05rem .4rem; border-radius:.4rem;
+      background:var(--chip); color:var(--ink); font-variant-numeric:tabular-nums;
     }
 
     /* ---- install: CSS-only suite picker (markup from render-index.sh) ------ */

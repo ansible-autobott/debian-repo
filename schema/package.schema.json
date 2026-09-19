@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://ansible-autobott.github.io/debian-repo/schema/package.schema.json",
   "title": "autobott APT package entry",
-  "description": "One file per app under packages/. References the .deb artifacts for the app's current version; the publish CI downloads and verifies them.",
+  "description": "A package reference under packages/. Names one package at ONE version and references that version's .deb artifacts; the publish CI downloads and verifies them. Usually one file per app (packages/<name>.json), but the filename is free and several files MAY name the same package — that is how an app ships a different version to different suites (packages/klassy.trixie.json, packages/klassy.sid.json). All files are merged at publish time; the only uniqueness rule, enforced by hydrate rather than here, is that no two artifacts across all of packages/ and debs/ claim the same (package, release, arch).",
   "type": "object",
   "additionalProperties": false,
   "required": ["name", "version", "artifacts"],
@@ -14,7 +14,7 @@
     },
     "version": {
       "type": "string",
-      "description": "Package version (must match the .deb's Version field).",
+      "description": "Package version, including any packaging revision and suite suffix (must match the .deb's Version field exactly, e.g. \"6.7.2-1~sid\"). Every artifact in this file must carry it; register a differing version into its own file.",
       "minLength": 1
     },
     "homepage": {

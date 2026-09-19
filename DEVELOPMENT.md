@@ -47,7 +47,10 @@ ARCHES="amd64 arm64"
   signed `dists/<codename>/`. An artifact's `release` field in a
   `packages/<name>.json` (or a `debs/<codename>/` subfolder) must name one of
   these, or the special value **`any`**, which expands to *every* codename in
-  `DISTS` — the artifact is placed into each one's pool.
+  `DISTS` — the artifact is placed into each one's pool. The *order* of `DISTS` is
+  the order the landing page lists a package's releases in, so keep it most-stable
+  first (`trixie forky sid`) — alphabetical order would read `forky, sid, trixie`,
+  which says nothing about which suite to track.
 - **`ALIASES`** — rolling suites (`stable`, `testing`, `unstable`) that point at
   one `DISTS` codename each. Every alias publishes its own signed
   `dists/<alias>/Release` (`Suite=<alias>`, `Codename=<target>`), built by
@@ -144,23 +147,65 @@ release's flat namespace.
 On the tool's next release that step writes `packages/<name>.json` here and pushes
 it, which triggers a publish.
 
+#### A different version per release
+
+One package file holds **one** version — `version` is a single field, and hydrate
+checks it against every `.deb` it downloads. That is fine when all suites get the
+same build, but not when a tool must ship *different upstream versions* to
+different suites: klassy, for example, builds v6.5.3 for `trixie` because its
+KF6 6.13 cannot build v6.7+, while `forky`/`sid` get v6.7.2.
+
+Register each version group into its own file with `file`:
+
+```yaml
+      - uses: ansible-autobott/debian-repo/.github/actions/register@main
+        with:
+          name: klassy                      # same package name in every file
+          dist-dir: dist                    # holds only this group's dist/<codename>/
+          file: packages/klassy.trixie.json # one file per version group
+          token: ${{ secrets.DEBIAN_REPO_TOKEN }}
+```
+
+Several files may name the same package; all of `packages/*.json` are merged at
+publish time and the only uniqueness rule is that no two artifacts claim the same
+**(package, release, arch)** — a collision names both files and fails the build.
+A file per release group also keeps releases independent: publishing `sid` never
+rewrites `trixie`'s entry, so one suite's broken build cannot block another's fix.
+
+The landing page still lists such a package **once**, showing the newest version
+plus a `+N more` hint; expanding it names each release's own version next to that
+release's downloads.
+
+Note the versions must still differ *as strings*, since a GitHub release's assets
+share one flat namespace and the pool is keyed by version — a suite suffix
+(`6.7.2-1~sid`) gives you both, which is why `register` takes the version from the
+`.deb` control field rather than from the tag.
+
 ## Adding packages
 
 ### From a tool's release CI (the register action)
 
 The [composite action](.github/actions/register/action.yml) runs this repo's own
 [`scripts/register.sh`](scripts/register.sh): it builds `packages/<name>.json`
-(per-arch URL + sha256 from the built debs), validates it against the schema, and
-commits + pushes it (with rebase-retry). Keeping the logic here means a schema
-change is made once, not in every app.
+(per-release+arch URL + sha256 from the built debs), validates it against the
+schema, and commits + pushes it (with rebase-retry). Keeping the logic here means
+a schema change is made once, not in every app.
 
-Inputs: `name` and `token` (required); `dist-dir` (default `dist`), `tag` (default
-the release ref), `source-repo` (default the calling repo), `repo` (default
+Inputs: `name` and `token` (required); `dist-dir` (default `dist`), `file` (default
+`packages/<name>.json`, must stay under `packages/`), `tag` (default the release
+ref), `source-repo` (default the calling repo), `repo` (default
 `ansible-autobott/debian-repo`). Pin `@v1` instead of `@main` to insulate apps from
 format changes.
 
+`version` is read from each `.deb`'s own `Version` control field, never derived
+from `tag`: a tag need not be a bare version (klassy-deb tags
+`debian_sid-v6.7.2`), and a packaging revision or suite suffix (`6.7.2-1~sid`)
+exists only in the `.deb`. Since hydrate cross-checks the downloaded `.deb`,
+anything inferred from the tag would simply fail there. Every `.deb` under one
+`dist-dir` must agree on the version; a mix is rejected with a pointer to `file`.
+
 To generate a reference by hand (e.g. testing), `scripts/register.sh` is also wired
-to `make register NAME=… REPO=owner/app TAG=vX.Y.Z [DIST=dist]`.
+to `make register NAME=… REPO=owner/app TAG=vX.Y.Z [DIST=dist] [FILE=packages/….json]`.
 
 ### Manually (a committed binary)
 
@@ -204,6 +249,13 @@ isn't release-specific. `additionalProperties` is `false` and URLs must be HTTPS
 At publish time each download is checked against `sha256`, and the `.deb`'s own
 `Package`/`Version`/`Architecture` must match `name`/`version`/`arch` — otherwise
 the build fails and the previous deployment stays live.
+
+The filename is not part of the format: `packages/<name>.json` is only the
+default. Because `version` is a single field, an app whose suites carry different
+versions splits them across several files that all set the same `name` (see
+[A different version per release](#a-different-version-per-release)). Uniqueness is
+enforced per **(package, release, arch)** across every file and `debs/`, not per
+file, so the split is safe but overlapping releases are a hard error.
 
 ## Local development
 

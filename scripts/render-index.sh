@@ -29,10 +29,15 @@ read -ra ARCHES <<< "$ARCHES"
 # extract one TSV line per stanza from every configured codename's generated
 # Packages indexes, tagged with its release (codename); dedup identical
 # artifacts (e.g. arch:all debs listed under every architecture, or the same
-# package present in more than one release), then group by package+version
-# into one row each — the releases and architectures each become their own
-# tag group, and the .debs become a per-arch download menu. No indexes across
-# any codename (empty preview dir) => no rows.
+# package present in more than one release), then group by package NAME into one
+# row each — the releases and architectures each become their own tag group, and
+# the .debs become a per-arch download menu. No indexes across any codename
+# (empty preview dir) => no rows.
+#
+# Grouping is by name alone, NOT by (name, version): an app may ship a different
+# version to different suites (e.g. an older upstream release for stable, whose
+# libraries can't build the newest) and that is still one package — it must be
+# listed once, with the per-release versions shown in the expanded body.
 rows=""
 tsv="$(
   for cn in $DISTS; do
@@ -51,44 +56,81 @@ tsv="$(
         /^[[:space:]]*$/{emit()} END{emit()}
       ' "$pf"
     done < <(find "$SITE/dists/$cn/main" -name Packages 2>/dev/null)
-  done | sort -u
+  done | sort -u | sort -t"$(printf '\t')" -k2,2 -k3,3V -k1,1 -k4,4
 )"
+# The re-sort orders rows by package, then version ASCENDING (-V is dpkg-like: it
+# ranks `~` below everything, so 6.5.3-1~trixie < 6.7.2-1~forky < 6.7.2-1), then
+# release, then arch. The awk below relies on that: a plain last-wins assignment
+# then leaves the NEWEST version (and its description/homepage) as the row's
+# headline, and package rows come out in alphabetical order. The release key only
+# makes the pipeline deterministic — the order releases are DISPLAYED in comes
+# from $DISTS (passed in below), not from this sort.
 if [ -n "$tsv" ]; then
-  rows="$(printf '%s\n' "$tsv" | awk -F'\t' '
+  rows="$(printf '%s\n' "$tsv" | awk -F'\t' -v dists="$DISTS" '
+    # Releases are shown in conf/dists.conf order (most stable first: trixie ->
+    # forky -> sid) instead of alphabetically, which would interleave the suites
+    # meaninglessly (forky, sid, trixie). Every release reaching this point is a
+    # $DISTS codename — the tsv above is built by walking $DISTS — so every name
+    # has a position here.
+    BEGIN{ nd=split(dists,dord," "); for(di=1;di<=nd;di++) dpos[dord[di]]=di }
     function esc(s){ gsub(/&/,"\\&amp;",s); gsub(/</,"\\&lt;",s); gsub(/>/,"\\&gt;",s); return s }
     function hsize(b){ if(b+0>=1048576)return sprintf("%.1f MB",b/1048576);
                        else if(b+0>=1024)return sprintf("%.0f KB",b/1024); else return b" B" }
     function srt(a,c,   i,j,t){ for(i=1;i<c;i++)for(j=i+1;j<=c;j++)if(a[j]<a[i]){t=a[i];a[i]=a[j];a[j]=t} }
-    function dllink(rak,ar){ return "<a href=\"" esc(afn[rak]) "\" download><span class=\"a\">" esc(ar) "</span><span class=\"s\">" hsize(asz[rak]) "</span></a>" }
+    # same shape as srt() but ranked by the configured suite order, not by name
+    function rsrt(a,c,  i,j,t){ for(i=1;i<c;i++)for(j=i+1;j<=c;j++)if(dpos[a[j]]<dpos[a[i]]){t=a[i];a[i]=a[j];a[j]=t} }
+    function dllink(rak,ar,vl){ return "<a href=\"" esc(afn[rak]) "\" download><span class=\"a\">" esc(ar) "</span>" \
+      (vl=="" ? "" : "<span class=\"dl-v\">" esc(vl) "</span>") "<span class=\"s\">" hsize(asz[rak]) "</span></a>" }
     {
-      rel=$1; key=$2 SUBSEP $3
-      if(!(key in seen)){ seen[key]=1; ord[++n]=key; kpkg[key]=$2; kver[key]=$3; kdesc[key]=$7; khome[key]=$8 }
+      rel=$1; key=$2
+      if(!(key in seen)){ seen[key]=1; ord[++n]=key; kpkg[key]=$2 }
+      # rows arrive version-ascending, so last-wins = the newest version as headline
+      kver[key]=$3; kdesc[key]=$7; khome[key]=$8
+      vk=key SUBSEP $3; if(!(vk in vseen)){ vseen[vk]=1; nver[key]++ }
       rk=key SUBSEP rel; if(!(rk in rseen)){ rseen[rk]=1; rels[key]=rels[key](rels[key]==""?"":" ")rel }
+      # the (package, release, arch) guard in hydrate means one version per release
+      rver[rk]=$3
       ak=key SUBSEP $4; if(!(ak in aseen)){ aseen[ak]=1; arch[key]=arch[key](arch[key]==""?"":" ")$4 }
-      # per (package, release, arch): the real pool file, its size and content hash
-      rak=key SUBSEP rel SUBSEP $4; afn[rak]=$6; asz[rak]=$5; ash[rak]=$9
+      # per (package, release, arch): the real pool file, its size, content hash
+      # and version — (package, release, arch) is the finest grain the repo makes
+      # unique, so this is the only level at which a version is always exact
+      rak=key SUBSEP rel SUBSEP $4; afn[rak]=$6; asz[rak]=$5; ash[rak]=$9; rav[rak]=$3
       rark=rk SUBSEP $4; if(!(rark in raseen)){ raseen[rark]=1; rarch[rk]=rarch[rk](rarch[rk]==""?"":" ")$4 }
     }
     END{
       for(i=1;i<=n;i++){ key=ord[i];
         m=split(arch[key],av," "); srt(av,m)
-        r=split(rels[key],rv," "); srt(rv,r)
+        r=split(rels[key],rv," "); rsrt(rv,r)
         reltags=""; for(a=1;a<=r;a++) reltags=reltags "<span class=\"rel\">" esc(rv[a]) "</span>"
         tags=""; for(a=1;a<=m;a++) tags=tags "<span class=\"arch\">" esc(av[a]) "</span>"
+        # The collapsed row shows the newest version; when the releases do not all
+        # agree on it, a "+N more" hint says so without splitting the package into
+        # one row per version. The body then names the version of every release.
+        vermulti=""; if(nver[key]>1) vermulti="<span class=\"ver-multi\">+" (nver[key]-1) " more</span>"
         # Each release’s signature is its sorted "arch:sha256;" set. When every
         # release shares one signature (a release-agnostic "any" build, or a
         # single-release package) the downloads stay one flat per-arch list. Any
-        # divergence — a different per-arch build, or different arch coverage —
-        # groups the downloads by release so every distinct build is reachable.
-        grouped=0; sig="";
+        # divergence — a different version, a different per-arch build, or
+        # different arch coverage — groups the downloads by release so every
+        # distinct build is reachable and labelled with the version it carries.
+        grouped=(nver[key]>1); sig="";
         for(a=1;a<=r;a++){ rk=key SUBSEP rv[a]; rm=split(rarch[rk],ra," "); srt(ra,rm); s="";
           for(b=1;b<=rm;b++) s=s ra[b] ":" ash[rk SUBSEP ra[b]] ";";
           if(a==1) sig=s; else if(s!=sig) grouped=1 }
         if(grouped){
           dl="<div class=\"downloads-by-rel\">";
           for(a=1;a<=r;a++){ rk=key SUBSEP rv[a]; rm=split(rarch[rk],ra," "); srt(ra,rm);
-            dl=dl "<div class=\"rel-group\"><span class=\"rel-h\">" esc(rv[a]) "</span><div class=\"downloads\">";
-            for(b=1;b<=rm;b++) dl=dl dllink(rk SUBSEP ra[b], ra[b]);
+            # Label the release with its own version only when they differ across
+            # releases — otherwise the summary already states the single version.
+            # One version per release is the norm but not guaranteed: uniqueness is
+            # per (package, release, arch), so a half-finished matrix can leave one
+            # arch behind. A heading version would then lie about the other link, so
+            # in that case label each download instead of the group.
+            uniform=1; for(b=2;b<=rm;b++) if(rav[rk SUBSEP ra[b]]!=rav[rk SUBSEP ra[1]]) uniform=0
+            relv=""; if(nver[key]>1 && uniform) relv="<span class=\"rel-v\">" esc(rver[rk]) "</span>";
+            dl=dl "<div class=\"rel-group\"><span class=\"rel-h\">" esc(rv[a]) relv "</span><div class=\"downloads\">";
+            for(b=1;b<=rm;b++){ rak=rk SUBSEP ra[b];
+              dl=dl dllink(rak, ra[b], uniform ? "" : rav[rak]) }
             dl=dl "</div></div>" }
           dl=dl "</div>";
         } else {
@@ -99,7 +141,7 @@ if [ -n "$tsv" ]; then
         }
         home=""; if(khome[key]!=""){ lbl=khome[key]; sub(/^https?:\/\//,"",lbl); sub(/\/+$/,"",lbl);
           home="<a class=\"home\" href=\"" esc(khome[key]) "\">" esc(lbl) "</a>" }
-        printf "            <details class=\"pkg\" name=\"packages\"><summary><span class=\"name\"><code>%s</code></span><span class=\"ver\">%s</span><span class=\"rels\">%s</span><span class=\"arches\">%s</span></summary><div class=\"pkg-body\"><p class=\"desc\">%s</p>%s%s</div></details>\n", esc(kpkg[key]), esc(kver[key]), reltags, tags, esc(kdesc[key]), home, dl
+        printf "            <details class=\"pkg\" name=\"packages\"><summary><span class=\"name\"><code>%s</code></span><span class=\"ver\">%s</span>%s<span class=\"rels\">%s</span><span class=\"arches\">%s</span></summary><div class=\"pkg-body\"><p class=\"desc\">%s</p>%s%s</div></details>\n", esc(kpkg[key]), esc(kver[key]), vermulti, reltags, tags, esc(kdesc[key]), home, dl
       }
     }')"
 fi
@@ -118,7 +160,11 @@ elif [ -n "${DEMO_WHEN_EMPTY:-}" ]; then
   demo_cn="trixie forky"
   # Preview-only placeholder items so the landing page can be styled/themed with a
   # populated list on an empty repo. Never rendered by the build (see header).
-  demo_rows=$'            <details class="pkg" name="packages"><summary><span class="name"><code>example-cli</code></span><span class="ver">1.4.0</span><span class="rels"><span class="rel">trixie</span><span class="rel">forky</span></span><span class="arches"><span class="arch">amd64</span><span class="arch">arm64</span></span></summary><div class="pkg-body"><p class="desc">Sample package with per-release builds \xe2\x80\x94 demo preview only</p><a class="home" href="#">github.com/example/example-cli</a><div class="downloads-by-rel"><div class="rel-group"><span class="rel-h">trixie</span><div class="downloads"><a href="#" download><span class="a">amd64</span><span class="s">742 KB</span></a><a href="#" download><span class="a">arm64</span><span class="s">698 KB</span></a></div></div><div class="rel-group"><span class="rel-h">forky</span><div class="downloads"><a href="#" download><span class="a">amd64</span><span class="s">750 KB</span></a><a href="#" download><span class="a">arm64</span><span class="s">705 KB</span></a></div></div></div></div></details>\n            <details class="pkg" name="packages"><summary><span class="name"><code>widget-daemon</code></span><span class="ver">0.9.2</span><span class="rels"><span class="rel">trixie</span><span class="rel">forky</span></span><span class="arches"><span class="arch">amd64</span></span></summary><div class="pkg-body"><p class="desc">Release-agnostic sample \xe2\x80\x94 same build in every suite</p><a class="home" href="#">example.com/widget-daemon</a><div class="downloads"><a href="#" download><span class="a">amd64</span><span class="s">1.3 MB</span></a></div></div></details>'
+  # example-cli previews the per-release-VERSION shape (one row, newest version in
+  # the summary + a "+N more" hint, each release's own version beside its
+  # downloads); widget-daemon previews the shared-"any"-build shape. Releases are
+  # listed in demo_cn / $DISTS order (most stable first), as rsrt() emits them.
+  demo_rows=$'            <details class="pkg" name="packages"><summary><span class="name"><code>example-cli</code></span><span class="ver">1.4.0</span><span class="ver-multi">+1 more</span><span class="rels"><span class="rel">trixie</span><span class="rel">forky</span></span><span class="arches"><span class="arch">amd64</span><span class="arch">arm64</span></span></summary><div class="pkg-body"><p class="desc">Sample package \xe2\x80\x94 a different version per release, demo preview only</p><a class="home" href="#">github.com/example/example-cli</a><div class="downloads-by-rel"><div class="rel-group"><span class="rel-h">trixie<span class="rel-v">1.3.2</span></span><div class="downloads"><a href="#" download><span class="a">amd64</span><span class="s">742 KB</span></a><a href="#" download><span class="a">arm64</span><span class="s">698 KB</span></a></div></div><div class="rel-group"><span class="rel-h">forky<span class="rel-v">1.4.0</span></span><div class="downloads"><a href="#" download><span class="a">amd64</span><span class="s">750 KB</span></a><a href="#" download><span class="a">arm64</span><span class="s">705 KB</span></a></div></div></div></div></details>\n            <details class="pkg" name="packages"><summary><span class="name"><code>widget-daemon</code></span><span class="ver">0.9.2</span><span class="rels"><span class="rel">trixie</span><span class="rel">forky</span></span><span class="arches"><span class="arch">amd64</span></span></summary><div class="pkg-body"><p class="desc">Release-agnostic sample \xe2\x80\x94 same build in every suite</p><a class="home" href="#">example.com/widget-daemon</a><div class="downloads"><a href="#" download><span class="a">amd64</span><span class="s">1.3 MB</span></a></div></div></details>'
   note=$'      <p style="margin:0 0 1rem;color:var(--ink-soft);font-size:.85rem">Demo preview \xe2\x80\x94 sample data shown because the repository has no packages yet. Visible only via <code>make serve</code>; it is never part of the published site.</p>\n'
   body="$note$list_open$demo_rows$list_close"
 else

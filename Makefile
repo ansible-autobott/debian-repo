@@ -74,11 +74,19 @@ add: ## stage a local .deb into debs/ for manual, git-committed hosting: make ad
 	 echo "✅ staged debs/$$(basename "$(DEB)")  ($$pkg $$ver $$arch)"; \
 	 echo ">> commit it (git add debs/ && git commit); the push publishes it"
 
+# FILE overrides the default packages/<name>.json. One file holds one version, so
+# an app whose suites ship different versions registers each group separately:
+#   make register NAME=klassy ... DIST=dist/trixie-only FILE=packages/klassy.trixie.json
+# All packages/*.json are merged at publish time; no two may claim the same
+# (package, release, arch).
+REGISTER_OUT = $(if $(FILE),$(FILE),packages/$(NAME).json)
+
 .PHONY: register
-register: ## generate a packages/<name>.json locally from built debs (DIST may be flat dist/*.deb = "any", or dist/<release>/*.deb per codename): make register NAME=app REPO=owner/app TAG=vX.Y.Z [DIST=dist]
-	@[ "$(NAME)" ] && [ "$(REPO)" ] && [ "$(TAG)" ] || ( echo ">> usage: make register NAME=go-deps-view REPO=ansible-autobott/go-deps-view TAG=v1.3.0 [DIST=dist]"; exit 1 )
-	@./scripts/register.sh --name "$(NAME)" --dist-dir "$(DIST)" --repo "$(REPO)" --tag "$(TAG)" --out "packages/$(NAME).json"
-	@echo ">> commit packages/$(NAME).json to publish (normally the app CI does this via the register action)"
+register: ## generate a packages/*.json locally from built debs (DIST may be flat dist/*.deb = "any", or dist/<release>/*.deb per codename): make register NAME=app REPO=owner/app TAG=vX.Y.Z [DIST=dist] [FILE=packages/app.trixie.json]
+	@[ "$(NAME)" ] && [ "$(REPO)" ] && [ "$(TAG)" ] || ( echo ">> usage: make register NAME=go-deps-view REPO=ansible-autobott/go-deps-view TAG=v1.3.0 [DIST=dist] [FILE=packages/<app>.<release>.json]"; exit 1 )
+	@case "$(REGISTER_OUT)" in packages/*.json) ;; *) echo "❌ FILE must be packages/<something>.json, got '$(REGISTER_OUT)'"; exit 1;; esac
+	@./scripts/register.sh --name "$(NAME)" --dist-dir "$(DIST)" --repo "$(REPO)" --tag "$(TAG)" --out "$(REGISTER_OUT)"
+	@echo ">> commit $(REGISTER_OUT) to publish (normally the app CI does this via the register action)"
 
 .PHONY: verify
 verify: require-key ## sanity-check a built site: every suite's signature valid + pooled debs parse

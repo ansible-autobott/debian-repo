@@ -14,7 +14,7 @@ PKG_DIR="$ROOT/packages"
 . "$(dirname "$0")/dists-lib.sh"; dists_load "${DISTS_CONF:-$ROOT/conf/dists.conf}"
 
 rm -rf "$SITE/pool"; for cn in $DISTS; do mkdir -p "$SITE/pool/$cn/main"; done
-placed=""
+declare -A origin
 
 place() { # <deb> <pkg> <dest-basename> <codename>
   # Callers pass a CANONICAL basename <Package>_<Version>_<Architecture>.deb (arch-trailing),
@@ -25,9 +25,19 @@ place() { # <deb> <pkg> <dest-basename> <codename>
   # pools are per-codename and the collision guard rejects a repeated (package,codename,arch), unique.
   local dest="$SITE/pool/$4/main/${2:0:1}/$2"; mkdir -p "$dest"; cp "$1" "$dest/$3"
 }
-guard() { # <pkg> <codename> <arch>  — fail on a repeated (pkg,codename,arch)
-  case " $placed " in *" $1|$2|$3 "*) echo "❌ duplicate artifact: $1 for $2/$3" >&2; exit 1;; esac
-  placed="$placed $1|$2|$3"
+guard() { # <pkg> <codename> <arch> <source>  — fail on a repeated (pkg,codename,arch)
+  # (pkg,codename,arch) is the repo's one uniqueness rule, and it spans every
+  # source: several packages/*.json MAY describe the same package (that is how an
+  # app ships a different version per suite — one file per version group) as long
+  # as no two claim the same release+arch. Naming both sources makes that
+  # collision immediately diagnosable instead of "duplicate artifact: x for y/z".
+  local k="$1|$2|$3"
+  if [ -n "${origin[$k]:-}" ]; then
+    echo "❌ duplicate artifact: $1 for $2/$3 — claimed by both '${origin[$k]}' and '$4'" >&2
+    echo "   each (package, release, arch) may be provided exactly once across packages/*.json and debs/" >&2
+    exit 1
+  fi
+  origin[$k]="$4"
 }
 
 shopt -s nullglob
@@ -48,7 +58,7 @@ if [ ${#json_files[@]} -eq 0 ]; then echo "⚠️  no package files in packages/
       [ "$p" = "$name" ]    || { echo "❌ $f: name '$name' != deb Package '$p'" >&2; rm -f "$tmp"; exit 1; }
       [ "$v" = "$version" ] || { echo "❌ $f: version '$version' != deb Version '$v'" >&2; rm -f "$tmp"; exit 1; }
       [ "$a" = "$arch" ]    || { echo "❌ $f: arch '$arch' != deb Architecture '$a'" >&2; rm -f "$tmp"; exit 1; }
-      for cn in $targets; do guard "$name" "$cn" "$arch"; place "$tmp" "$name" "${p}_${v}_${a}.deb" "$cn"; done
+      for cn in $targets; do guard "$name" "$cn" "$arch" "$(basename "$f")"; place "$tmp" "$name" "${p}_${v}_${a}.deb" "$cn"; done
       rm -f "$tmp"; echo "   ✅ $release/$arch  $(basename "$url")"
     done
   done
@@ -60,7 +70,7 @@ handle_manual() { # <deb> <release>
   name=$(dpkg-deb -f "$1" Package); ver=$(dpkg-deb -f "$1" Version); arch=$(dpkg-deb -f "$1" Architecture)
   arch_valid "$arch" || { echo "❌ $1: arch '$arch' not in ARCHES" >&2; exit 1; }
   targets=$(release_targets "$2") || exit 1
-  for cn in $targets; do guard "$name" "$cn" "$arch"; place "$1" "$name" "${name}_${ver}_${arch}.deb" "$cn"; done
+  for cn in $targets; do guard "$name" "$cn" "$arch" "debs/${2}/$(basename "$1")"; place "$1" "$name" "${name}_${ver}_${arch}.deb" "$cn"; done
   echo "   ✅ $2/$arch  $(basename "$1")"
 }
 
