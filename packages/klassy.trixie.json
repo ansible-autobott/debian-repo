@@ -5,8 +5,8 @@
     {
       "release": "trixie",
       "arch": "amd64",
-      "url": "https://github.com/ansible-autobott/klassy-deb/releases/download/debian13_trixie-v6.5.3/klassy_6.5.3-1.trixie_amd64.deb",
-      "sha256": "b7f8200d11d55960dfb5e062370ea0bf6521f9c4ef2787bd956225ebcf7cea0f"
+      "url": "https://github.com/ansible-autobott/klassy-deb/releases/download/debian13_trixie-v6.5.3-1/klassy_6.5.3-1.trixie_amd64.deb",
+      "sha256": "44ec0e143675cf7173600315814878b66385e2faa7bf5b669e62e2fba50fcef3"
     }
   ]
 }
