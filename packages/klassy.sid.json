@@ -6,7 +6,7 @@
       "release": "sid",
       "arch": "amd64",
       "url": "https://github.com/ansible-autobott/klassy-deb/releases/download/debian_sid-v6.7.2/klassy_6.7.2-1.sid_amd64.deb",
-      "sha256": "205101cb81c4d786370430366692edc4475393b42adb4d3d8fa3b51a5ca0940b"
+      "sha256": "1025ef886a21e9bbb252026067ebde057946ef280fda6940ba09f41588cc3d2b"
     }
   ]
 }
