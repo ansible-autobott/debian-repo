@@ -164,6 +164,33 @@
       background:var(--surface); border:1px dashed var(--line); border-radius:var(--r-card);
     }
 
+    /* ---- packages: downloads grouped by release (when builds differ) ------ */
+    /* rendered by scripts/render-index.sh only when a package ships a genuinely
+       different .deb per release; identical/"any" builds stay a flat .downloads */
+    .panel-packages .downloads-by-rel { display:flex; flex-direction:column; gap:.7rem; }
+    .panel-packages .rel-group { display:flex; flex-direction:column; gap:.35rem; }
+    .panel-packages .rel-group .rel-h {
+      font-family:var(--font-mono); font-size:.72rem; color:var(--ink-soft);
+    }
+
+    /* ---- install: CSS-only suite picker (markup from render-index.sh) ------ */
+    /* per-suite :checked reveal + active-tab rules are generated per build and
+       injected as a <style> block inside .suite-pick (suites come from config) */
+    .step-title .hint { font-weight:400; color:var(--ink-soft); }
+    .suite-pick > .suite-radio { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
+    .suite-tabs { display:flex; flex-wrap:wrap; gap:.4rem; margin:.1rem 0 .75rem; }
+    .suite-lbl {
+      cursor:pointer; user-select:none; font-weight:600; font-size:.82rem;
+      color:var(--ink-soft); background:var(--chip); border:1px solid var(--line);
+      border-radius:var(--r-pill); padding:.24rem .7rem;
+      display:inline-flex; align-items:baseline; gap:.35rem;
+      transition:box-shadow .15s ease, color .15s ease, background .15s ease;
+    }
+    .suite-lbl:hover { color:var(--ink); }
+    .suite-lbl .suite-sub { font-family:var(--font-mono); font-size:.68rem; opacity:.72; font-weight:500; }
+    .suite-cmd { display:none; }
+    .no-suites { margin:.2rem 0 0; color:var(--ink-soft); font-size:.9rem; }
+
     /* ---- footer ----------------------------------------------------------- */
     .foot { margin-top:2.8rem; padding-top:1.3rem; border-top:1px solid var(--line); color:var(--ink-soft); font-size:.88rem; }
 
@@ -211,9 +238,8 @@ sudo curl -fsSL @@REPO_URL@@/@@KEYRING_FILE@@ \
           </li>
           <li class="step">
             <div>
-              <p class="step-title">Add the repository</p>
-              <div class="cmd"><pre><code>sudo curl -fsSL @@REPO_URL@@/@@SOURCES_FILE@@ \
-  -o /etc/apt/sources.list.d/@@SOURCES_FILE@@</code></pre></div>
+              <p class="step-title">Add the repository <span class="hint">— pick the release to track</span></p>
+              <!-- ADD_REPO -->
             </div>
           </li>
           <li class="step">

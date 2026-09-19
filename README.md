@@ -6,20 +6,20 @@ served over HTTPS from **GitHub Pages** — the Debian/Ubuntu counterpart to the
 install the tools with `apt` like any other package.
 
 - **URL:** https://ansible-autobott.github.io/debian-repo
-- **Suites:** per Debian release — `bookworm`, `trixie`, `sid` (+ aliases `stable`/`testing`/`unstable`) · **Component:** `main` · **Architectures:** `amd64`, `arm64`
+- **Suites:** per Debian release — `trixie`, `forky`, `sid` (+ aliases `stable`/`testing`/`unstable`) · **Component:** `main` · **Architectures:** `amd64`, `arm64`
 
 ## Install
 
 Trust the signing key, then add a source. Pick **one** of the two:
 
 - **Match your Debian release** — recommended on the Debian releases this repo
-  publishes: **bookworm**, **trixie**, or **sid**. Installs the build made for
+  publishes: **trixie**, **forky**, or **sid**. Installs the build made for
   your exact release.
 - **Track `stable`** — for **Ubuntu** (jammy, noble, …) and any Debian release
-  **not** listed above (e.g. bullseye). A suite label need not match the host
-  release, so `stable` works on every host.
+  **not** listed above (e.g. bookworm, bullseye). A suite label need not match the
+  host release, so `stable` works on every host.
 
-### Match your Debian release (bookworm / trixie / sid)
+### Match your Debian release (trixie / forky / sid)
 
 ```bash
 sudo install -d -m 0755 /etc/apt/keyrings
@@ -38,7 +38,7 @@ sudo apt update
 ```
 
 This writes your host's own codename as the suite, so it only works when that
-codename is one this repo publishes (`bookworm`, `trixie`, `sid`). On any other
+codename is one this repo publishes (`trixie`, `forky`, `sid`). On any other
 host — **Ubuntu**, or an unlisted Debian release — that `apt update` would 404;
 use the `stable` source below instead.
 
