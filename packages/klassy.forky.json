@@ -6,7 +6,7 @@
       "release": "forky",
       "arch": "amd64",
       "url": "https://github.com/ansible-autobott/klassy-deb/releases/download/debian_testing-v6.7.2/klassy_6.7.2-1.forky_amd64.deb",
-      "sha256": "dd2403ce79728a585cde07b67aab680846ddf36c063178d98382244e82a85ca6"
+      "sha256": "dff4933e4beda9a3feae44dc9ae2d64ff98b324553384310bbc473d4f99a021b"
     }
   ]
 }
