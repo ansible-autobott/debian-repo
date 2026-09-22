@@ -4,7 +4,7 @@ How this APT repository works, how to set it up from scratch, and how to operate
 it as a maintainer. For end-user install instructions see `README.md`.
 
 - **URL:** https://ansible-autobott.github.io/debian-repo
-- **Suites:** per Debian release — `trixie`, `forky`, `sid` (+ aliases `stable`/`testing`/`unstable`) · **Component:** `main` · **Architectures:** `amd64`, `arm64`
+- **Suites:** per release — Debian `trixie`, `forky`, `sid` and Ubuntu `resolute` (+ aliases `stable`/`testing`/`unstable`) · **Component:** `main` · **Architectures:** `amd64`, `arm64`
 
 ## How it works
 
@@ -32,30 +32,42 @@ than shipping a partial index.
 
 ## Releases & suites
 
-Which Debian codenames this repo publishes, and the rolling-suite aliases on top
+Which codenames this repo publishes, and the rolling-suite aliases on top
 of them, are configured in one place: [`conf/dists.conf`](conf/dists.conf).
 `hydrate.sh`, `gen-index.sh`, `render-index.sh`, and the Makefile all load it
 through `scripts/dists-lib.sh` — no release name is hardcoded anywhere else.
 
 ```bash
-DISTS="trixie forky sid"                             # codenames: each gets pool/<cn>/main/ + signed dists/<cn>/
+DISTS="trixie forky sid resolute"                    # codenames: each gets pool/<cn>/main/ + signed dists/<cn>/
 ALIASES="stable:trixie testing:forky unstable:sid"   # <alias>:<target>: signed dists/<alias>/ mirroring target's Packages
 ARCHES="amd64 arm64"
 ```
+
+Nothing distinguishes an Ubuntu codename from a Debian one here — a suite is
+just a name a client can put in `Suites:`, so `resolute` (Ubuntu 26.04 LTS) is an
+ordinary `DISTS` entry. What it buys is that an Ubuntu host matching its own
+codename gets packages built against *its* Qt/KF stack instead of the Debian
+`stable` builds. The aliases stay Debian-only on purpose (see below).
 
 - **`DISTS`** — the codenames that get a real `pool/<codename>/main/` and a
   signed `dists/<codename>/`. An artifact's `release` field in a
   `packages/<name>.json` (or a `debs/<codename>/` subfolder) must name one of
   these, or the special value **`any`**, which expands to *every* codename in
-  `DISTS` — the artifact is placed into each one's pool. The *order* of `DISTS` is
-  the order the landing page lists a package's releases in, so keep it most-stable
-  first (`trixie forky sid`) — alphabetical order would read `forky, sid, trixie`,
-  which says nothing about which suite to track.
+  `DISTS` — the artifact is placed into each one's pool. Adding a codename
+  therefore widens every existing `any` artifact: it starts being served to the
+  new suite too, which is what you want for a portable `.deb` and what you must
+  check before adding a suite whose stack such a build can't satisfy. The *order*
+  of `DISTS` is the order the landing page lists a package's releases in, so keep
+  it most-stable first (`trixie forky sid`, then the Ubuntu suites) — alphabetical
+  order would read `forky, resolute, sid, trixie`, which says nothing about which
+  suite to track.
 - **`ALIASES`** — rolling suites (`stable`, `testing`, `unstable`) that point at
   one `DISTS` codename each. Every alias publishes its own signed
   `dists/<alias>/Release` (`Suite=<alias>`, `Codename=<target>`), built by
   copying the target codename's `Packages` files — there's no separate pool for
-  an alias.
+  an alias. They name *Debian's* release cycle, so the Ubuntu codenames get no
+  alias of their own; an Ubuntu host either matches its codename or tracks
+  `stable` and gets the Debian stable builds.
 - **Moving `stable` forward** is a one-line edit: when Debian promotes, say,
   `forky` to stable, change `ALIASES` in `conf/dists.conf` from
   `stable:trixie` to `stable:forky` — no script or workflow changes needed.
