@@ -6,20 +6,20 @@ served over HTTPS from **GitHub Pages** — the Debian/Ubuntu counterpart to the
 install the tools with `apt` like any other package.
 
 - **URL:** https://ansible-autobott.github.io/debian-repo
-- **Suites:** per Debian release — `trixie`, `forky`, `sid` (+ aliases `stable`/`testing`/`unstable`) · **Component:** `main` · **Architectures:** `amd64`, `arm64`
+- **Suites:** per release — Debian `trixie`, `forky`, `sid` and Ubuntu `resolute` (+ aliases `stable`/`testing`/`unstable`) · **Component:** `main` · **Architectures:** `amd64`, `arm64`
 
 ## Install
 
 Trust the signing key, then add a source. Pick **one** of the two:
 
-- **Match your Debian release** — recommended on the Debian releases this repo
-  publishes: **trixie**, **forky**, or **sid**. Installs the build made for
-  your exact release.
-- **Track `stable`** — for **Ubuntu** (jammy, noble, …) and any Debian release
-  **not** listed above (e.g. bookworm, bullseye). A suite label need not match the
+- **Match your release** — recommended on the releases this repo publishes:
+  Debian **trixie**, **forky**, **sid**, or Ubuntu **resolute** (26.04 LTS).
+  Installs the build made for your exact release.
+- **Track `stable`** — for any other release: older Ubuntu (jammy, noble, …) or
+  an unlisted Debian (e.g. bookworm, bullseye). A suite label need not match the
   host release, so `stable` works on every host.
 
-### Match your Debian release (trixie / forky / sid)
+### Match your release (trixie / forky / sid / resolute)
 
 ```bash
 sudo install -d -m 0755 /etc/apt/keyrings
@@ -38,11 +38,11 @@ sudo apt update
 ```
 
 This writes your host's own codename as the suite, so it only works when that
-codename is one this repo publishes (`trixie`, `forky`, `sid`). On any other
-host — **Ubuntu**, or an unlisted Debian release — that `apt update` would 404;
-use the `stable` source below instead.
+codename is one this repo publishes (`trixie`, `forky`, `sid`, `resolute`). On
+any other host — an older Ubuntu, or an unlisted Debian release — that
+`apt update` would 404; use the `stable` source below instead.
 
-### Track `stable` (Ubuntu, or any unlisted release)
+### Track `stable` (any unlisted release)
 
 Download the ready-made source; its `Suites: stable` follows whatever the current
 stable release is:
