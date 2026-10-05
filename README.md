@@ -59,7 +59,7 @@ sudo apt update
 Then install any tool by name, for example:
 
 ```bash
-sudo apt install go-deps-view
+sudo apt install klassy
 ```
 
 ## Update
