@@ -1,7 +1,0 @@
-{
-  "name": "example-pkg",
-  "version": "0.3.1",
-  "artifacts": [
-    { "release": "any", "arch": "a/b", "url": "https://example.com/example-pkg_0.3.1_a.deb", "sha256": "c1fce4a1d3454069fc595aea37cf7e2d786a5f832f06385e2630f656a05d4fc0" }
-  ]
-}

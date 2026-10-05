@@ -1,9 +1,17 @@
 name: Publish APT repo
 
-# A push to main that touches a package reference, a manually-added binary, or
-# the build tooling rebuilds the whole repo from packages/*.json + debs/ and
-# publishes it to GitHub Pages. The full set is reconstructed every run, so no
-# app can clobber another's package.
+# A push to main that touches a package reference, a committed binary or the
+# repository config rebuilds the whole repo from packages/*.json + debs/ and
+# publishes it to GitHub Pages, through the gh-action-debian-repo engine. This is
+# a publish-only call: this repository is the collection its tools push their
+# references to (conf/owners.conf says which tool may publish which package).
+# The full set is reconstructed every run, so no app can clobber another's
+# package.
+#
+# Signing uses the APT_SIGNING_KEY repository secret, passed to the engine by
+# name. The engine lives under another account (andresbott), and across accounts
+# GitHub ignores `secrets: inherit` and does not hand a github-pages environment
+# secret to the engine's job either — the key must be a repository secret here.
 
 on:
   push:
@@ -11,68 +19,16 @@ on:
     paths:
       - 'packages/**'
       - 'debs/**'
-      - 'schema/**'
       - 'conf/**'
-      - 'scripts/**'
-      - 'Makefile'
-      - 'index.html'
-      - 'autobott.sources'
       - '.github/workflows/publish.yml'
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-# One publish at a time; don't cancel an in-flight deployment.
-concurrency:
-  group: pages
-  cancel-in-progress: false
-
 jobs:
   publish:
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
-    env:
-      SITE: _site
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Install tooling
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y apt-utils
-          pipx install check-jsonschema
-          # jq, gpg, curl are preinstalled on ubuntu-latest runners.
-
-      - name: Import signing key
-        # GNUPGHOME is kept OUTSIDE the repo/site tree so the private key can
-        # never land in the published artifact. runner.* is only available at
-        # step level, so it's set here (and on the build step) rather than on
-        # the job.
-        env:
-          GNUPGHOME: ${{ runner.temp }}/autobott-gnupg
-        run: |
-          install -d -m 700 "$GNUPGHOME"
-          printf '%s' "${{ secrets.APT_SIGNING_KEY }}" | gpg --batch --import
-
-      - name: Validate package references
-        run: make validate
-
-      - name: Assemble the pool (download + verify, merge debs/)
-        run: make hydrate
-
-      - name: Build & sign the index
-        env:
-          GNUPGHOME: ${{ runner.temp }}/autobott-gnupg
-        run: make build
-
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
-      - id: deploy
-        uses: actions/deploy-pages@v4
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: andresbott/gh-action-debian-repo/.github/workflows/publish.yml@v1
+    secrets:
+      APT_SIGNING_KEY: ${{ secrets.APT_SIGNING_KEY }}
