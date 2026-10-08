@@ -1,12 +1,18 @@
 {
   "name": "klassy",
-  "version": "6.7.2-1~forky",
+  "version": "6.7.2-2~forky",
   "artifacts": [
     {
       "release": "forky",
       "arch": "amd64",
-      "url": "https://github.com/ansible-autobott/klassy-deb/releases/download/debian_testing-v6.7.2-1/klassy_6.7.2-1.forky_amd64.deb",
-      "sha256": "8eb31bbc1f8d9f06839c83ed5cdb18b2dfd3951f1020d3b380e87248fc82abbe"
+      "url": "https://github.com/ansible-autobott/klassy-deb/releases/download/debian_testing-v6.7.2-2/klassy_6.7.2-2.forky_amd64.deb",
+      "sha256": "b723b00f7c2d39fa26e44b933a05b3d9934c94478801e568f8a7857fe324cbc9"
+    },
+    {
+      "release": "forky",
+      "arch": "arm64",
+      "url": "https://github.com/ansible-autobott/klassy-deb/releases/download/debian_testing-v6.7.2-2/klassy_6.7.2-2.forky_arm64.deb",
+      "sha256": "0d4a156fc82f7792d55824948b87d339e4ed59f3092d590141254acbca2cf5a5"
     }
   ]
 }
