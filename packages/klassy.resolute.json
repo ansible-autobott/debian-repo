@@ -1,12 +1,18 @@
 {
   "name": "klassy",
-  "version": "6.7.2-1~resolute",
+  "version": "6.7.2-2~resolute",
   "artifacts": [
     {
       "release": "resolute",
       "arch": "amd64",
-      "url": "https://github.com/ansible-autobott/klassy-deb/releases/download/ubuntu2604_resolute-v6.7.2-1/klassy_6.7.2-1.resolute_amd64.deb",
-      "sha256": "cadc2d3c630248e5db9e13f658fa34a35c307fcf9a29cefa989f2124cad2309c"
+      "url": "https://github.com/ansible-autobott/klassy-deb/releases/download/ubuntu2604_resolute-v6.7.2-2/klassy_6.7.2-2.resolute_amd64.deb",
+      "sha256": "f2f8dd5e17776087b90693726fc48f2384ba5f9f1205b6fbe2fa8bbb134ec844"
+    },
+    {
+      "release": "resolute",
+      "arch": "arm64",
+      "url": "https://github.com/ansible-autobott/klassy-deb/releases/download/ubuntu2604_resolute-v6.7.2-2/klassy_6.7.2-2.resolute_arm64.deb",
+      "sha256": "b81d72babae1e1749e2f54cb68d1855cb8f898e3ffa0f34790c0fc61e4afdb21"
     }
   ]
 }
