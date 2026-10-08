@@ -1,12 +1,18 @@
 {
   "name": "klassy",
-  "version": "6.7.2-1~sid",
+  "version": "6.7.2-2~sid",
   "artifacts": [
     {
       "release": "sid",
       "arch": "amd64",
-      "url": "https://github.com/ansible-autobott/klassy-deb/releases/download/debian_sid-v6.7.2/klassy_6.7.2-1.sid_amd64.deb",
-      "sha256": "1025ef886a21e9bbb252026067ebde057946ef280fda6940ba09f41588cc3d2b"
+      "url": "https://github.com/ansible-autobott/klassy-deb/releases/download/debian_sid-v6.7.2-2/klassy_6.7.2-2.sid_amd64.deb",
+      "sha256": "948c5c0079fbcb660906699df75545c4949acba2d80e1dcb12c21fdff6f973b9"
+    },
+    {
+      "release": "sid",
+      "arch": "arm64",
+      "url": "https://github.com/ansible-autobott/klassy-deb/releases/download/debian_sid-v6.7.2-2/klassy_6.7.2-2.sid_arm64.deb",
+      "sha256": "0c0c959a478f9f10ca4e1351f69c308dacdcc6a4736132f9185bb83ced410f1c"
     }
   ]
 }
