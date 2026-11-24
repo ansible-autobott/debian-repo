@@ -1,12 +1,12 @@
 {
   "name": "telementary-icons",
-  "version": "0.1.0-1",
+  "version": "0.2.0",
   "artifacts": [
     {
       "release": "any",
       "arch": "all",
-      "url": "https://github.com/ansible-autobott/telementary-icons/releases/download/v0.1.0-1/telementary-icons_0.1.0-1_all.deb",
-      "sha256": "bdeeeaebf77ca16df1dcb42e9e3882c55b923e5ca298c951104543664f663025"
+      "url": "https://github.com/ansible-autobott/telementary-icons/releases/download/v0.2.0/telementary-icons_0.2.0_all.deb",
+      "sha256": "c01a70c4f5c67f8f9f7ae4f00907b98d7a2d891b66b6e4714fc7c989f072ac61"
     }
   ]
 }
